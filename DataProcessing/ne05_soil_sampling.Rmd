@@ -1,0 +1,68 @@
+## Preparation 
+
+```{r additional-packages-gss}
+library(fields)
+library(gstat)
+library(automap)
+```
+
+```{r additional-functions}
+#--- Set Kriging function based on variogram model --#
+
+grid_kriging <- function(soildata, point.grid_sp) {
+  targ.var <- names(soildata)[c(1:length(soildata[, 1]) - 1)]
+  Res.krig <- c()
+  Best_model <- list()
+  fit_set <- list()
+  for (i in 1:length(targ.var)) {
+    data.sel <- soildata[, which(colnames(soildata) == targ.var[i])]
+    data.sel.sp <- as(data.sel, "Spatial")
+
+    data.sel.sp <- na.omit(data.sel.sp)
+    y <- data.frame(data.sel.sp[, targ.var[i]])[, 1]
+    fit <- NULL
+    fit <- autofitVariogram(y ~ 1, data.sel.sp,
+      miscFitOptions = list(merge.small.bins = FALSE), verbose = T
+    )
+    fit_set[[i]] <- fit
+    Best_model[[i]] <- fit$var_model
+    # Krige and plot all SOILGRID variables
+    out.krige <- krige(y ~ 1, data.sel.sp, point.grid_sp, model = fit$var_model)$var1.pred
+    Res.krig <- cbind(Res.krig, out.krige)
+  }
+  colnames(Res.krig) <- targ.var
+  # All.krige <- Res.krig
+  return(list(All.krige = Res.krig, Best.table = Best_model, Fits = fit_set))
+}
+```
+
+
+
+```{r }
+#--- read the cleaned data  ---#
+cleaned_sf <- st_read("Intermediate/data_cleaned_60_4.shp") %>%
+  st_transform_utm()
+
+cleaned_sp <- as(cleaned_sf, "Spatial")
+
+grid <- st_read("grid_soilsample.shp")
+
+### Need to Confrim what variables to select #####
+grid_sel <- select(grid, 1)
+
+
+### get a centroid geometry of cleaned polygon as a point data frame ####
+point_cleaned <- SpatialPointsDataFrame(coordinates(cleaned_sp),
+  data = cleaned_sp@data, proj4string = CRS(proj4string(cleaned_sp))
+)
+
+
+
+krigged_soil <- grid_kriging(grid_sel, point_cleaned)
+```  
+
+```{r }  
+#--- save the data ---#
+saveRDS(krigged_soil, "Intermediate/grid_soil.rds")
+```
+

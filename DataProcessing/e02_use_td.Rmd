@@ -1,0 +1,106 @@
+# Process the trial design in place of as-applied data
+
+**Caution!**:
+
+You are using the trial-design as the input data. Make sure you are okay with this!!!
+
+```{r }
+library(sf)
+library(tidyverse)
+library(data.table)
+library(tmap)
+library(measurements)
+library(here)
+```
+
+## Read in datasets
+
+```{r }
+input_type <- tolower("input_type_here")
+
+#--- trial design ---#
+td_file_name <- here("Data/Growers", ffy, "TrialDesign") %>% 
+  list.files(recursive = TRUE, full.names = TRUE) %>%
+  .[str_detect(., "shp")] %>%
+  .[!str_detect(., "xml")] %>%
+  .[str_detect(., "trial-design")] 
+
+if (length(td_file_name) > 1) {
+  td_file_name <- td_file_name %>% 
+    .[str_detect(., paste0("trial-design-", input_type))]
+}
+
+td <- st_read(td_file_name) %>%
+  st_transform_utm() %>%
+  setnames(names(.), tolower(names(.)))
+
+td_names <- names(td)
+```
+
+## Miscellaneous operations and various checks
+
+### Change variable names
+
+time variable needs to be dealt with separately
+
+```{r }
+dict_td <- dictionary[type == "trial_design", ]
+
+td <- make_var_name_consistent(
+    td, 
+    dict_td 
+  )
+  
+td <- setnames(
+  td, 
+  paste0("tgt_", input_type), 
+  "input_rate"
+)
+
+if (input_type == "n") {
+  td <- mutate(td, 
+    input_rate = convert_N_unit(
+      input_data_n$form, 
+      input_data_n$unit, 
+      input_rate, 
+      field_data$reporting_unit
+    ) + n_base_rate
+  )
+} else if (input_type == "s") {
+  #--- seed rate conversion ---#
+  if (any(td$input_rate > 10000)){
+    #--- convert to K ---#
+    td <- mutate(td, input_rate = input_rate / 1000)
+  }
+}
+
+```
+
+```{r }
+tm_shape(td) +
+  tm_fill(
+    col = "input_rate",
+    title = toupper(input_type)
+  ) +
+tm_shape(yield_polygons) +
+  tm_dots(
+    col = "blue", 
+    size = 0.05
+  ) +
+tm_layout_to_add
+
+```
+
+## Save the data
+
+```{r }
+here(
+  "Data/Growers", 
+  ffy, 
+  "Intermediate",
+  paste0("as_applied_", input_type, ".rds")
+) %>% 
+saveRDS(td, .)
+```
+
+

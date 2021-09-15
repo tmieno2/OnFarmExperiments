@@ -1,0 +1,533 @@
+---
+title: "Run Analysis for A crop-type-here Experiment"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+    toc_float:
+      collapsed: true
+    number_sections: true
+---
+
+# Preparation
+
+## Set up
+
+```{r setup, cache = F, echo = F}
+library(knitr)
+knitr::opts_chunk$set(
+  cache = TRUE,
+  echo = TRUE,
+  error = TRUE,
+  warning = FALSE,
+  fig.retina = 6,
+  message = FALSE
+)
+
+options(knitr.duplicate.label = "allow")
+
+#--- working field-year ---#
+ffy <- "field-year-here" 
+
+#--- root directory ---#
+opts_knit$set(root.dir = here("Data", "Growers", ffy))
+
+```
+
+## Packages
+
+```{r pacakges, cache = FALSE}
+# === packages ===#
+library(sf)
+library(tmap)
+library(mgcv)
+library(ggcorrplot)
+library(R.utils)
+library(patchwork)
+library(scam)
+library(parallel)
+library(dplyr)
+library(tidyverse)
+library(corrplot)
+library(data.table)
+library(GWmodel)
+library(mgcv)
+
+```
+
+```{r map-layout, cache = TRUE}
+tm_layout_to_add <- tm_layout(
+  legend.outside = "TRUE",
+  frame = FALSE,
+  legend.title.size = 2,
+  legend.text.size = 1.5
+)
+
+```
+
+## Parameters and functions
+
+```{r echo = F, results = "hide"}
+#/*----------------------------------*/
+#' ### Trial parameters
+#/*----------------------------------*/
+# source(here("Codes/Functions/unpack_field_parameters.R"))
+source(
+  get_r_file_name("Functions/unpack_field_parameters.R"), 
+  local = TRUE
+)
+
+crop_price_table <- fread(here("Data/CommonData/CropPrice.csv")) %>% 
+  setnames(names(.), tolower(names(.))) %>% 
+  filter(type == "current") %>% 
+  rename(crop_price = price)
+
+input_price_table <- fread(here("Data/CommonData/InputPrice.csv")) %>% 
+  setnames(names(.), tolower(names(.)))
+
+#/*~~~~~~~~~~~~~~~~~~~~~~*/
+#' ### variable name dictionary
+#/*~~~~~~~~~~~~~~~~~~~~~~*/
+dictionary <- fromJSON(
+  file.path(
+    here("Data", "CommonData"),
+    "variable_name_dictionary.json"
+  ),
+  flatten = TRUE
+) %>% 
+data.table()
+
+#/*----------------------------------*/
+#' ### Source functions
+#/*----------------------------------*/
+source(
+  "https://github.com/tmieno2/DIFM/blob/master/Functions/prepare.R?raw=TRUE",
+  local = TRUE
+)
+
+
+```
+
+# Title-here analysis
+
+## Read the analysis data 
+
+```{r data-prep-s, cache = F, results = "hide"}
+
+data_sf <- here("Data/Growers", ffy, "Analysis-Ready/analysis_data.rds") %>% 
+  readRDS() %>% 
+  rename(yield = yield_vol) %>% 
+  setnames(names(.), tolower(names(.))) %>% 
+  filter(!is.na(yield)) %>% 
+  cbind(., st_coordinates(st_centroid(.))) 
+
+```
+
+## GWR estimation for management zone delineation
+
+### GWR estimation
+
+```{r gwr, results = "hide"}
+
+analysis_res_g <- trial_info %>% 
+  left_join(crop_price_table, by = "crop") %>% 
+  mutate(data = rep(list(data_sf), nrow(.))) %>% 
+  rowwise() %>% 
+  mutate(
+    data = list(
+      setnames(
+        data.table::copy(data),
+        paste0(tolower(input_type), "_rate"),
+        "input_rate"
+      )
+    )
+  ) %>%  
+  mutate(
+    field_vars = list(
+      find_field_vars(data)
+    )
+  ) %>% 
+  mutate(
+    data = list(
+      gen_y_res(data, field_vars)
+    )
+  ) %>% 
+  mutate(
+    data = list(
+      run_gwr(subset(data, input_rate != 0), "input_rate")  
+    )
+  ) 
+
+```
+
+### GWR estimates histogram
+
+```{r }
+pluck(analysis_res_g, "data") %>% 
+  map(., ~ 
+    ggplot(.) +
+      geom_histogram(
+        aes(x = b_slope), 
+        color = "blue", 
+        fill = "white"
+      )
+  )
+
+```
+
+### Define management zones based on GWR
+
+```{r yield-response-functions-by-group}
+
+# data.table(analysis_res$data[[1]])[, sum(is.na(clay))]
+
+analysis_res_m <- analysis_res_g %>% 
+  mutate(
+    data = list(
+      define_mz(
+        data = data, 
+        max_num_zones = 4, 
+        min_obs = 300
+      ) 
+    )
+  )
+  
+```
+
+```{r }
+
+pluck(analysis_res_m, "data") %>% 
+  map(., ~ 
+    tm_shape(.) +
+    tm_fill(col = "zone_txt", palette = "Set1") +
+    tm_layout_to_add
+  )
+
+```
+
+## Yield response function (GAM) estimation by zone
+
+```{r gam-estimate}
+
+analysis_res_gam <- analysis_res_m %>% 
+  mutate(gam_res = list(
+    run_scam_gam(data = data, field_vars = field_vars)
+  )) 
+  # %>% 
+  # #=== make the observations in the same zone have the same X and Y ===#
+  # mutate(
+  #   data = list(
+  #     data.table(data) %>% 
+  #       .[, `:=`(
+  #         X = mean(X), 
+  #         Y = mean(Y)
+  #       ), by = "zone_txt"] %>% 
+  #       st_as_sf()
+  #   )
+  # )
+
+```
+
+Here is the `gam` model formula:
+
+```{r }
+analysis_res_gam$gam_res
+
+```
+
+
+## Profit estimation and economic optimization
+
+```{r }
+
+analysis_res_e <- analysis_res_gam %>% 
+  #=== single average observation by zone ===#
+  mutate(data_for_eval = list(
+    make_data_for_eval(
+      data = data,
+      est = gam_res
+    )
+  )) %>% 
+  #=== input rate sequence by zone to be tested ===#
+  mutate(input_rate_seq = list(
+    data.table(data)[, .(
+      input_rate = seq(
+        quantile(input_rate, 0.025),
+        quantile(input_rate, 0.975),
+        length = 100
+      )
+    ),
+    by = zone_txt]
+  )) %>% 
+  #=== predict yield values at different input rates ===#
+  mutate(eval_data = list(
+    predict_yield_range(
+      data_for_eval = data_for_eval, 
+      input_rate_seq = input_rate_seq,
+      est = gam_res
+    ) %>% 
+    .[, type := "opt_v"]%>% 
+    .[, .(
+      input_rate, zone_txt, type, yield_hat, yield_hat_se
+    )]
+  )) %>% 
+  #=== Adjust yield values to match up with actual yields (this is purely for figures below) ===#
+  mutate(
+    #=== mean predicted yield ===#
+    mean_yield_hat_opt = 
+    list(
+      eval_data[, .(mean_yield_hat = mean(yield_hat)), by = zone_txt]
+    ), 
+    #=== mean actual yield by zone ===#
+    mean_yield_actual = 
+    list(
+      data.table(data)[, 
+      .(mean_yield_actual = mean(yield)), 
+      by = zone_txt
+      ]
+    ),
+    #=== shift yield so that figures look ===#
+    yield_shift_opt = 
+    list(
+      mean_yield_actual[mean_yield_hat_opt, on = "zone_txt"] %>% 
+        .[, yield_shift :=  mean_yield_actual - mean_yield_hat] %>% 
+        .[, .(zone_txt, yield_shift)]
+    ),
+    eval_data = 
+    list(
+      eval_data %>% 
+      yield_shift_opt[., on = "zone_txt"] %>% 
+      .[, yield_hat := yield_hat + yield_shift] %>% 
+      .[, profit_hat := crop_price * yield_hat - price * input_rate] %>% 
+      .[, profit_hat_se := crop_price * yield_hat_se] 
+    )
+  ) %>% 
+  dplyr::select(
+    - mean_yield_hat_opt, 
+    - yield_shift_opt, 
+    - mean_yield_actual
+  ) %>% 
+  mutate(opt_input_data = list(
+   opt_input_data <- eval_data %>% 
+    .[, .SD[profit_hat == max(profit_hat), ], by = zone_txt] %>% 
+    setnames("input_rate", "opt_input") 
+  )) %>% 
+  #=== assign optimal variable input rate to the data ===#
+  mutate(data = list(
+    left_join(
+      data, 
+      opt_input_data,
+      by = "zone_txt"
+    )
+  )) %>% 
+  #=== find the optimal uniform rate ===#
+  mutate(data = list(
+    mutate(
+      data, 
+      opt_input_u = find_opt_u(
+        data = data, 
+        gam_res = gam_res,
+        crop_price = crop_price,
+        input_price = price
+      )
+    )
+  ))
+
+```
+
+### Yield response functions by zone
+
+```{r }
+
+analysis_res_e %>% 
+  mutate(
+    ymin = eval_data[, min(yield_hat - 1.96 * yield_hat_se)] - 10
+  ) %>% 
+  dplyr::select("data", "eval_data", "ymin") %>% 
+  mutate(g_ys = 
+    list(
+      eval_data %>% 
+      filter(type == "opt_v") %>% 
+      ggplot(data = .) +
+      geom_line(aes(y = yield_hat, x = input_rate)) +
+      geom_ribbon(
+        aes(
+          ymin = yield_hat - 1.96 * yield_hat_se, 
+          ymax = yield_hat + 1.96 * yield_hat_se, 
+          x = input_rate
+        ),
+        fill = "red",
+        alpha = 0.4
+      ) +
+      geom_point(
+        data = data, 
+        aes(
+          y = yield, 
+          x = input_rate
+        ),
+        size = 0.4
+      ) +
+      facet_grid(. ~ zone_txt) +
+      ylim(ymin, NA)
+    )
+  ) %>% 
+  pluck("g_ys")
+  
+```
+
+## Testing Profitability by Zone
+
+```{r gen-opt-S-v-data-map}
+
+# analysis_res_o$data[[1]]
+# analysis_res_o$pi_dif_test_zone
+# analysis_res_o$opt_gc_data
+# analysis_res_o$data[[1]] %>% data.table %>% 
+#   .[, mean(yield), by = zone_txt] 
+
+analysis_res_o <- analysis_res_e %>% 
+  #=== Assign gc_rate for all the observations ===#
+  mutate(data = list(
+    assign_gc_rate(data, input_type, gc_type, gc_rate)
+  )) %>% 
+  #=== Test the statistical sig for profit differential by zone ===#
+  mutate(pi_dif_test_zone = list(
+    get_dif_stat_zone(
+      data = data.table(data), 
+      test_var = "input_rate", 
+      opt_var = "opt_input",
+      gc_var = "gc_rate",
+      gam_res = gam_res,
+      by_var = "zone_txt",
+      crop_price = crop_price,
+      input_price = price
+    )
+  )) %>% 
+  mutate(opt_gc_data = list(
+    get_opt_gc_data(
+      data = data,
+      pi_dif_test_zone = pi_dif_test_zone,
+      opt_input_data = opt_input_data
+    )
+  ))
+
+```
+
+```{r }
+analysis_res_o$pi_dif_test_zone 
+analysis_res_o$opt_gc_data 
+``` 
+
+### Optimal vs GC (profit difference for individual observations)
+
+```{r }
+analysis_res_og <- analysis_res_o %>% 
+  mutate(
+    pi_indiv_opt = list(
+      predict_yield(
+        data = data, 
+        est = gam_res, 
+        var_name = "opt_input"
+      ) %>% 
+      data.table() %>% 
+      .[, .(yield_hat, obs_id, input_rate)] %>% 
+      .[, pi_hat_opt := crop_price * yield_hat - price * input_rate]
+    ),
+    pi_indiv_gc = list(
+      predict_yield(
+        data = data, 
+        est = gam_res, 
+        var_name = "gc_rate"
+      ) %>% 
+      data.table() %>% 
+      .[, .(yield_hat, obs_id, input_rate)] %>% 
+      .[, pi_hat_gc := crop_price * yield_hat - price * input_rate]
+    ),
+    pi_dif = list(
+      left_join(
+        pi_indiv_opt, 
+        pi_indiv_gc,
+        by = "obs_id"
+      ) %>% 
+      mutate(
+        pi_dif = pi_hat_opt - pi_hat_gc
+      )
+    ),
+    data = list(
+      left_join(data, pi_dif, by = "obs_id"
+    ))
+  ) %>% 
+  dplyr::select(
+    - pi_indiv_opt, 
+    - pi_indiv_gc, 
+    - pi_dif
+  )
+
+```
+
+### Whole-field profit
+
+```{r }
+
+# analysis_res_w$whole_profits_test
+
+analysis_res_w <- analysis_res_og %>% 
+  mutate(whole_profits_test = list(
+    get_whole_pi_test(
+      data = data, 
+      gam_res = gam_res, 
+      crop_price = crop_price,
+      input_price = price
+    )
+  )) 
+
+```
+
+```{r }
+analysis_res_w$whole_profits_test
+```
+
+## Get correlations between b_slope and soil/field characteristics and create figures of interactions
+
+```{r }
+analysis_res_ch <- analysis_res_w %>% 
+  mutate(field_interactions = list(
+      get_field_int(data, field_vars)
+  )) %>% 
+  mutate(field_plots = list(
+    get_inteactions_maps_ys(data, input_type, field_interactions)
+  ))
+
+```
+
+```{r }
+analysis_res_ch$field_interactions
+``` 
+
+## Save the results
+
+```{r }
+analysis_res_f <- analysis_res_ch %>% 
+  dplyr::select(
+    - gam_res
+  ) %>% 
+  mutate(
+    crop_price = crop_price
+  )
+
+file_name <- here(
+  "Reports/Growers", 
+  ffy, 
+  "analysis_results.rds" 
+)
+
+saveRDS(analysis_res_f, file_name)
+
+```
+
+```{r eval = F}
+# analysis_res_f$field_plots[[1]]$g_ys_char
+# analysis_res_f <- readRDS(file_name)
+ 
+```
+

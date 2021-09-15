@@ -1,0 +1,202 @@
+# Assign rates
+
+## Assigning rates
+
+```{r }
+num_levels <- _num-levels-here_
+design_type <- _design-type-here_ 
+max_jumps <- _max-jumps-here_
+rates <- readRDS(here("Data", "Growers", ffy, "TrialDesign/user_specified_rates.rds"))
+
+if (nrow(trial_data) > 1) {
+
+  design_parameter_data <- trial_data %>% 
+  dplyr::select(form) %>% 
+  mutate(push = c(FALSE, TRUE)) %>% 
+  mutate(num_levels = num_levels) %>% 
+  mutate(design_type = design_type) %>% 
+  mutate(max_jump = max_jumps) %>% 
+  mutate(rates = rates)  
+
+} else {
+
+  design_parameter_data <- trial_data %>% 
+  dplyr::select(form) %>% 
+  mutate(push = FALSE) %>% 
+  #=== use only the first in case two are provided ===#
+  mutate(num_levels = num_levels[1]) %>% 
+  mutate(design_type = design_type[1]) %>% 
+  mutate(max_jump = max_jumps[1]) %>% 
+  mutate(rates = list(rates[[1]])) 
+
+}
+
+#=== user-specified number of levels ===#
+# data_sf <- trial_data_r$exp_plots[[1]]
+# design_type <- trial_data_r$design_type[[1]]
+# max_jump <- trial_data_r$max_jump[[1]]
+# gc_rate <- round(trial_data_r$gc_rate[[1]])
+# min_rate <- trial_data_r$min_rate[[1]]
+# max_rate <- trial_data_r$max_rate[[1]]
+# num_levels <- trial_data_r$num_levels [[1]]# ignored
+# rates <- trial_data_r$rates[[1]]
+# push <- trial_data_r$push[[1]]
+
+trial_data_r <- trial_data_eh %>% 
+  left_join(., design_parameter_data, by = "form") %>% 
+  mutate(experiment_design = list(
+    assign_rates(
+      data_sf = exp_plots,
+      design_type = design_type,
+      max_jump = max_jump,
+      gc_rate = round(gc_rate),
+      min_rate = min_rate,
+      max_rate = max_rate,
+      num_levels = num_levels, # ignored 
+      rates = rates,
+      push = push,
+    ) %>% 
+    dplyr::select(rate)
+  )) %>% 
+  mutate(headland = list(
+    mutate(headland, rate = round(gc_rate)) %>% 
+    dplyr::select(rate)
+  )) %>% 
+  mutate(input_type = list(
+    case_when(
+      form == "seed" ~ "S",
+      form %in% c("uan28", "uan32", "urea", "NH3") ~ "N",
+      #=== needs to change this ===#
+      form == c("potash") ~ "K"
+    )
+  )) %>% 
+  mutate(trial_design = list(
+    rbind(
+      experiment_design,
+      headland
+    ) %>% 
+    #=== only for mapping ===#
+    mutate(rate_tm = factor(rate)) %>% 
+    setnames(
+      "rate",
+      case_when(
+        form == "seed" ~ "tgts_K",
+        form %in% c("uan28", "uan32", "urea", "NH3") ~ "tgtn",
+        #=== needs to change this ===#
+        form == c("potash") ~ "tgtk"
+      )
+    ) %>% 
+    st_transform(4326) 
+  )) %>% 
+  mutate(trial_design = list(
+    if ("tgts_K" %in% names(trial_design)) {
+      mutate(trial_design, tgts = trial_design$tgts_K * 1000) %>% 
+        relocate(tgts_K, tgts)
+    } else {
+      trial_design
+    }
+  )) %>% 
+  dplyr::select(
+    - exp_plots, - experiment_plots_dissolved,
+    - headland, - tm_exp_head, - experiment_design
+  ) %>% 
+  mutate(design_summary = list(
+    trial_design %>% 
+    mutate(area = as.numeric(st_area(.))) %>% 
+    mutate(acres = area * 0.000247105) %>% 
+    data.table()%>% 
+    .[, .(
+      tot_input = sum(acres * as.numeric(as.character(rate_tm))),
+      tot_acres = sum(acres)
+    )]  
+  ))  
+
+``` 
+
+# Trial Design Maps
+
+```{r }
+trial_data_r %>% 
+mutate(map_design = list(
+  tm_shape(trial_design) +
+    tm_polygons(
+      col = "rate_tm",
+      title = form,
+      palette = ifelse(form == "seed", "Greens", "Reds")
+    ) +
+  tm_layout_to_add +
+  tm_shape(ab_lines) +
+    tm_lines(
+      col = "ab_id",
+      palette = "Dark2",
+      lwd = 2
+    ) +
+  tm_layout(
+    title = paste0(
+      "Total Input = ", round(design_summary[, tot_input]), 
+      "\nAcres = ", round(design_summary[, tot_acres], digits = 2)
+    )
+  )
+)) %>% 
+pluck("map_design")
+
+```
+
+# Save the trial design
+
+```{r }
+file_name_append <- "_file-name-append-here_"
+
+# time_user <- paste0(
+#   Sys.time(), 
+#   "-",
+#   Sys.getenv("USER")
+# ) %>% 
+# gsub(" ", "-", .) %>% 
+# gsub("_", "-", .)  
+
+dsn_name <- here("Data", "Growers", ffy, "TrialDesign")
+
+#=== save as rds ===#
+saveRDS(
+  trial_data_r,
+  here("Data", "Growers", ffy, "TrialDesign/trial_design.rds")
+)
+
+#=== write the trial design as a shape file ===#
+trial_data_r %>% 
+summarise(list(
+  st_write(
+    trial_design %>% dplyr::select(- rate_tm), 
+    dsn = dsn_name,
+    layer = paste0(
+      "trial-design-", tolower(input_type), 
+      "-", year,  
+      ifelse(is.na(line_edge_id), "", paste0("-", line_edge_id)),
+      ifelse(file_name_append == "NA", "", paste0("-", file_name_append)) 
+    ),
+    driver = "ESRI Shapefile",
+    append = FALSE
+  )
+)) 
+
+
+#=== write the ab-lines as a shape file ===#
+trial_data_r %>% 
+summarise(list(
+  st_write(
+    ab_lines, 
+    dsn = dsn_name,
+    layer = paste0(
+      "ab-lines-farmer-", tolower(input_type), 
+      "-", year,  
+      ifelse(is.na(line_edge_id), "", paste0("-", line_edge_id)),
+      ifelse(file_name_append == "NA", "", paste0("-", file_name_append)) 
+    ),
+    driver = "ESRI Shapefile",
+    append = FALSE
+  )
+)) 
+
+```
+

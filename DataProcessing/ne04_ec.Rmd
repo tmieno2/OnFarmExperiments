@@ -1,0 +1,114 @@
+# EC data
+
+```{r }
+library(raster)  
+library(fasterize)  
+library(stars)  
+```
+
+## Read in the EC data
+
+```{r }
+#--- read the boundary file ---#
+boundary_sf <- here(
+  "Data/Growers/",
+  ffy,
+  "Raw/boundary.shp"
+) %>% 
+st_read(.) %>%
+st_transform_utm()
+
+boundary_sp <- as(boundary_sf, "Spatial")
+
+### check if variables names are Ecs and Ecd
+
+ec_sf <- here(
+  "Data/Growers/",
+  ffy,
+  "Raw/ec.shp"
+) %>% 
+st_read(.) %>%
+st_transform_utm() %>% 
+setnames(names(.), tolower(names(.)))
+
+```
+
+### Change the EC variable names
+
+Here is the set of variable names:
+
+```{r }
+names(ec_sf)
+```
+
+```{r }
+#--- read the variable name dictionary ---#
+dictionary <- fromJSON(
+  file.path(
+    here("Data", "CommonData"),
+    "variable_name_dictionary.json"
+  ),
+  flatten = TRUE
+) %>% 
+data.table()
+
+dict_ec <- dictionary[type == "ec", ]
+
+ec_sf <- make_var_name_consistent(
+  ec_sf, 
+  dict_ec 
+)
+
+ec_sf <- dplyr::select(ec_sf, matches(dict_ec[, column]))
+
+```
+
+
+```{r }
+ggplot(ec_sf) +
+  geom_sf(aes(color = ecs)) +
+  scale_color_viridis_c()
+
+ggplot(ec_sf) +
+  geom_sf(aes(color = ecd)) +
+  scale_color_viridis_c()
+```
+
+## Rasterize the EC data
+
+```{r }
+### Set raster layer for the interpolation
+origin <- floor(st_bbox(boundary_sf)[1:2])
+ec_raster <- fasterize::raster(boundary_sp, origin, res = 3)
+
+### Interpolation by the inverse distance weight
+ec_raster$ecs <- st_interpolate(ec_sf, "ecs", ec_raster, "idw")
+ec_raster$ecd <- st_interpolate(ec_sf, "ecd", ec_raster, "idw")
+
+### Stack Raster and convert them into polygon data ####
+ec <- raster::stack(ec_raster$ecs, ec_raster$ecd) %>%
+  st_as_stars() %>%
+  split(3)
+
+```  
+
+## Visualization
+
+```{r }
+lapply(names(ec), 
+  function(x) 
+  tm_shape(ec[x, ]) + 
+  tm_raster() +
+  tm_layout(
+    legend.title.size = 3
+  )
+)
+```
+
+## Save the data
+
+```{r }  
+#--- save the data ---#
+saveRDS(ec, "Intermediate/ec.rds")
+```
+

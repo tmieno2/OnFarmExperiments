@@ -1,0 +1,121 @@
+---
+title: "Report on DIFM Field Trial \n _field-year-here_"
+output:
+  bookdown::word_document2:
+    toc: false
+    number_sections: false
+    reference_docx: "word_template.docx"
+  bookdown::html_document2:
+    toc: true
+    toc_depth: 2
+    toc_float:
+      collapsed: true
+    number_sections: true
+---
+
+<style type="text/css">
+
+body{ /* Normal  */
+      font-size: 20px;
+  }
+td {  /* Table  */
+  font-size: 16px;
+}
+h1.title {
+  font-size: 42px;
+}
+h1 { /* Header 1 */
+  font-size: 36px;
+}
+h2 { /* Header 2 */
+    font-size: 28px;
+}
+h3 { /* Header 3 */
+  font-size: 20px;
+}
+code.r{ /* Code block */
+    font-size: 16px;
+}
+</style>
+
+```{r, cache = F, echo = F, results = "hide"}
+library(knitr)
+knitr::opts_chunk$set(
+  cache = FALSE,
+  echo = FALSE,
+  warning = FALSE,
+  cache.lazy = FALSE,
+  fig.retina = 6,
+  fig.height = 9,
+  fig.width = 9,
+  message = FALSE,
+  error = TRUE
+)
+
+options(knitr.duplicate.label = "allow")
+```
+
+```{r a02-pacakages, cache = FALSE}
+library(here)
+library(sf)
+library(ggplot2)
+library(tmap)
+library(ggcorrplot)
+library(patchwork)
+library(flextable)
+library(officer)
+library(parallel)
+library(tidyverse)
+library(corrplot)
+library(data.table)
+library(GWmodel)
+
+```
+
+```{r results = "hide"}
+#--- working field-year ---#
+ffy <- "_field-year-here_"
+
+#--- root directory ---#
+# opts_knit$set(root.dir = here("Data", "Growers", ffy))
+# setwd(here("Data", ffy))
+
+#--- source functions ---#
+source(
+  "https://github.com/tmieno2/DIFM/blob/master/Functions/prepare.R?raw=TRUE",
+  local = TRUE
+)
+
+#--- make pdf output smaller in size ---#
+pdf.options(useDingbats = TRUE)
+
+#--- field parameters ---#
+source(
+  get_r_file_name("Functions/unpack_field_parameters.R"),
+  local = TRUE
+)
+
+#--- read the variable name dictionary ---#
+dictionary <- fromJSON(
+  file.path(
+    here("Data", "CommonData"),
+    "variable_name_dictionary.json"
+  ),
+  flatten = TRUE
+) %>% 
+data.table()
+
+plot_width <- 60
+```
+
+```{r map-layout, cache = TRUE}
+tm_layout_to_add <- tm_layout(
+  frame = FALSE,
+  legend.outside = TRUE, 
+  legend.title.size = 1,
+  legend.text.size = 0.8,
+  fontfamily = "Times"
+)
+
+```
+

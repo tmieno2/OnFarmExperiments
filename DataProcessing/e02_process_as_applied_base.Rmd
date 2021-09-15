@@ -1,0 +1,431 @@
+# Process raw as-applied rate data
+
+## Read in datasets
+
+### As-applied data
+
+```{r Reading-as-applied-n-data}
+
+input_type <- "input_type_here"
+
+aa_input <- here("Data/Growers", ffy, "Raw") %>% 
+  list.files(recursive = TRUE, full.names = TRUE) %>%
+  #--- search for as-applied-s file ---#
+  .[str_detect(., "shp")] %>%
+  .[!str_detect(., "xml")] %>%
+  .[str_detect(., "as-applied-file-name-here")] %>% 
+  # .[str_detect(., "as-applied-s")] %>% 
+  #--- read the data ---#
+  st_read() %>% 
+  st_set_4326() %>% 
+  st_transform_utm() %>%
+  setnames(names(.), tolower(names(.))) %>% 
+  mutate(id = 1:nrow(.))
+  
+is_aa_input_polygon <- any(st_geometry_type(aa_input) == "POLYGON")
+
+if (is_aa_input_polygon) {
+
+  aa_input <- close_unclosed(aa_input)
+
+  aa_input$geometry <- st_centroid(aa_input$geometry)
+
+}
+
+#--- get variable names ---#
+aa_input_names <- names(aa_input)
+
+```
+
+```{r visialize-n-as-planted-data}
+#--- visualize the points ---#
+tm_shape(aa_input) +
+  tm_dots()    
+
+```   
+
+### Medium distance of yield polygons
+
+```{r }
+#--- medium distance of yield polygons ---#
+med_distance_yp <- get_med_dist(yield_polygons)
+
+```
+
+## Miscellaneous operations and various checks
+
+### Change variable names
+
+time variable needs to be dealt with separately
+
+```{r }
+if("time" %in% names(aa_input) & "isotime" %in% names(aa_input)) {
+  aa_input <- dplyr::select(aa_input, - time) 
+  time_available <- TRUE
+}
+
+dict_aa_input <- dictionary[type == input_type, ]
+col_list <- dict_aa_input[, column]
+
+aa_input <- make_var_name_consistent(
+  aa_input,
+  dict_aa_input
+)
+
+aa_input <- dplyr::select(aa_input, matches(c(col_list, "sectionid", "id")))
+
+```
+
+### Check units 
+
+This code assumes that if `distance` is in meter, then other variables (e.g., `width`) are also measured in meter.
+
+```{r eval = F}
+dist_test <- aa_input %>% 
+  cbind(., st_coordinates(.)) %>% 
+  data.table() %>% 
+  .[, dif_X := c(0, diff(X))] %>% 
+  .[, dif_Y := c(0, diff(Y))] %>%  
+  #--- distance in meter ---#
+  .[, distance_r := sqrt(dif_X ^ 2 + dif_Y ^ 2)] %>%
+  #--- dif in difference in meter and recorded distance ---#
+  .[, dif_distance := abs(distance - distance_r)] %>%
+  .[, dif_distance_conv := abs(conv_unit(distance, "ft", "m") - distance_r)]
+
+# we want to see if the converted units from ft to meter are closer to the distance measured in r
+if (mean(dist_test$dif_distance_conv, na.rm = TRUE) < mean(dist_test$dif_distance, na.rm = TRUE)){
+  units <- "imperial"
+}  else {
+  units <- "metric"
+}
+
+```
+
+### Transform measurement unit
+
+```{r eval = F}
+if (units == "imperial") {
+  aa_input <- aa_input %>%
+    mutate(
+      width = conv_unit(width, "ft", "m"),
+      distance = conv_unit(distance, "ft", "m")
+    )
+}else{
+aa_input <- aa_input
+}
+```
+
+### Convert input rate unit 
+
+If `N`, then base N rate is added as well.
+
+```{r }
+if (input_type == "N") {
+  aa_input <- mutate(aa_input, 
+    input_rate = convert_N_unit(
+      input_data_n$form, 
+      input_data_n$unit, 
+      input_rate, 
+      field_data$reporting_unit
+    ) + n_base_rate # add base N rate
+  )
+} else if (input_type == "S") {
+  #--- seed rate conversion ---#
+  if (any(aa_input$input_rate > 10000)){
+    #--- convert to K ---#
+    aa_input <- mutate(aa_input, input_rate = input_rate / 1000)
+  }
+}
+```
+
+## Drop points in turns and group points by angle
+
+Definitions:
+
++ dense: if the distance between points in the direction you are moving is very small 
+
+
+```{r }
+recover_section_id <- FALSE # this gets updated if the use of points data is necessary
+sectionid_var_available <- ("sectionid" %in% names(aa_input))
+
+if (sectionid_var_available) { # if non-na section id variable is in the dataset
+  #--- medium distance between aa_input points ---#
+  med_distance_v <- get_med_dist_sec(aa_input)
+  #=== distance between sections ===#
+  med_distance_h <- get_med_dist(aa_input)
+  ratio <- med_distance_v / med_distance_h
+
+  #--- number of sections ---#
+  section_num <- data.table(aa_input)[, .(nobs = .N), by = .(angle)][, median(nobs)]
+
+  if (ratio < 1.01 & ratio > 0.99) {
+    # Note: if the ratio \sim 1, then it means we have only 1 observation per row
+    section_num <- 1
+    med_distance_v <- get_med_dist(aa_input)
+  }
+
+} else { # if sectionid variable is not present in the data
+
+  #=== find the number of the dominant number of the same rates ===#
+  # Note: for non-section-controlled machines the dominant number should be 1
+  dominant_rate_cluster_num <- data.table(aa_input)[
+    , 
+    .(num_same_rate = .N ), 
+    by = input_rate
+    ] %>% 
+    .[, .(num_num = .N), by = num_same_rate] %>% 
+    .[num_num == max(num_num), num_same_rate]
+
+  #=== estimate the machined width ===#
+  # if not section controlled, get_med_dist() gets us
+  # the median distance between points. 
+  # if section controlled, get_med_dist() gets us
+  # the distance sections. This width times the number of sections has to be similar with the actual machine width.
+    
+  estimated_width <- dominant_rate_cluster_num * get_med_dist(aa_input)
+
+  actual_machine_width <- filter(trial_info, input_type == "N") %>% 
+    pull(machine_width) %>% 
+    #=== this needs to change ===#
+    conv_unit("ft", "m")
+
+  if (
+    dominant_rate_cluster_num > 1 & 
+    actual_machine_width * 0.95 < estimated_width & 
+    actual_machine_width * 1.05 > estimated_width
+  ) {
+    # this is the case where section level data is available, but section id is not available
+    recover_section_id <- TRUE
+    section_num <- 99 # (any positive number greater than 1 will do)
+
+  } else { # no section control and 
+    
+    #--- number of sections ---#
+    section_num <- 1
+  }
+  
+}
+
+```
+
+### Group points by changes in angle 
+
+```{r }
+
+if (recover_section_id) { # if section id is missing even though the data is observed at the section level 
+  
+  aa_input_grouped <- group_and_recover_section_id(aa_input) %>% 
+    st_as_sf()
+
+  med_distance_v <- get_med_dist_sec(aa_input_grouped)
+
+} else { # no section control of section control with section identifier
+  if (section_num != 1) {
+    #--- if section-controlled and more than one section observations at a time ---#
+    aa_input_grouped <- group_points_sc(aa_input, "sectionid", angle_threshold = 30) %>% 
+      #--- remove observations with no group assigned ---#
+      mutate(
+        new_group = paste(group, sectionid, sep = "_")
+      ) %>% 
+      arrange(id)
+    #--- medium distance between aa_input points ---#
+    med_distance_v <- get_med_dist_sec(aa_input_grouped)
+
+  } else {
+    #--- if only one observation at a time ---#
+    aa_input_grouped <- group_points_sc(aa_input, by_var = NA, angle_threshold = 30) %>% 
+      #--- remove observations with no group assigned ---#
+      mutate(
+        new_group = group
+      )
+
+    #--- medium distance between aa_input points ---#
+    med_distance_v <- get_med_dist(aa_input_grouped)
+
+  }
+}
+
+
+```
+
+Red points are those that are recognized for making a sharp turn from their respective previous points.
+
+```{r }
+tm_shape(aa_input_grouped) +
+    tm_dots(col = "blue") +
+tm_shape(filter(aa_input_grouped, change_group == TRUE)) +
+    tm_dots(col = "red", size = 0.1) +
+tm_layout_to_add 
+```
+
+## Flag bad yield data points 
+
+```{r }
+sd_factor <- 4
+
+aa_input_grouped <- flag_bad_points(
+  aa_input_grouped, 
+  "input_rate", 
+  sd = sd_factor
+)  
+```
+
+Yield distribution after cleaning:
+
+```{r }
+aa_input_grouped %>% filter(flag_bad == 0) %>% 
+  pull(input_rate) %>% 
+  hist()
+
+aa_input_grouped %>% 
+  pull(input_rate) %>% 
+  hist()
+```
+
+`speed` vs `input_rate`
+
+```{r }
+if("speed" %in% names(aa_input_grouped) == FALSE){
+  aa_input_grouped$speed <- 0
+}
+
+speed_n_before <- ggplot(aa_input_grouped) +
+  geom_point(aes(y = input_rate, x = speed))
+
+speed_n_after <- ggplot(filter(aa_input_grouped, flag_bad == 0)) +
+  geom_point(aes(y = input_rate, x = speed))
+
+speed_n_before | speed_n_after
+```
+
+Which data points were flagged as **bad** (right image)?
+
+```{r }
+tm_before <- tm_shape(aa_input_grouped) +
+  tm_symbols(col = "input_rate", size = 0.05) +
+tm_layout_to_add 
+
+tm_after <- tm_shape(filter(aa_input_grouped, flag_bad == 1)) +
+  tm_symbols(col = "input_rate", size = 0.05) +
+tm_layout_to_add  
+
+tmap_arrange(tm_before, tm_after)
+```
+ 
+```{r }
+datasummary(
+  input_rate + width + speed + angle 
+  ~ Mean + SD + median,
+  data = aa_input_grouped
+)  
+```
+
+## Correct width if not right
+
+```{r }
+
+#/*----------------------------------*/
+#' ## Width correction
+#/*----------------------------------*/
+if (section_num != 1) {
+
+  # Note: this works as there are many observations at a single application time
+  med_distance_h <- get_med_dist(aa_input_grouped) 
+
+  aa_input_grouped <- mutate(aa_input_grouped, width = med_distance_h)
+
+} else {
+  # if only one observation at a timestamp, use the reported width from the machine 
+  aa_input_grouped <- aa_input_grouped
+} 
+```
+
+## Vertically reduce points if dense (parallel to the direction the planter is moving) 
+
+
+
+```{r }
+is_dense <- (med_distance_v * 2) < med_distance_yp
+
+if (is_dense) {
+
+  num_obs_rg <- ceiling(2 / (med_distance_v))
+
+  aa_input_reduced_v <- reduce_points_v(aa_input_grouped, num_obs_rg, "input_rate", "new_group") %>% 
+    .[, .SD[.N != 1, ], by = new_group]
+
+} else {
+
+  aa_input_reduced_v <- data.table(aa_input_grouped) %>% 
+    .[, .SD[.N != 1, ], by = new_group]
+
+}
+  
+```
+
+## Create polygons
+
+```{r }
+#--- prepare parallel computation ---#
+plan(multiprocess, workers = detectCores() - 2)
+
+#--- create polygons ---#
+all_polygons <- future_lapply(
+  #--- list of groups to loop over ---#
+  aa_input_reduced_v$new_group %>% unique(), 
+  #--- make polygons by group ---#
+  function(x) make_polygons(
+    filter(aa_input_reduced_v, new_group == x)
+  )
+) %>% 
+do.call("c", .) %>% 
+st_as_sfc() 
+
+#--- combine with the data ---#
+aa_input_sf <- aa_input_reduced_v %>% 
+  mutate(geometry = all_polygons) %>% 
+  st_as_sf() %>% 
+  st_set_crs(st_crs(aa_input)) %>% 
+  #--- get rid of transition polygons by area ---#
+  mutate(area = as.numeric(st_area(.))) %>% 
+  filter(area <= median(area) * 3) %>% 
+  mutate(aa_input_id = 1:nrow(.)) %>% 
+  filter(!st_is_empty(.)) %>% 
+  filter(flag_bad == 0) %>% 
+  dplyr::select(aa_input_id, input_rate)
+
+```
+
+```{r }
+tm_shape(aa_input_sf) +
+  tm_polygons(
+    lwd = 0.05,
+    col = "input_rate"
+  ) +
+tm_layout_to_add
+
+```
+
+**Check if polygon width is reasonable**
+
+```{r }
+tm_shape(aa_input_sf) +
+  tm_polygons(
+    lwd = 0.05,
+    col = "red",
+    alpha = 0.4
+  ) +
+tm_layout_to_add
+
+```
+
+## Save the data
+
+```{r }
+here(
+  "Data/Growers", ffy, "Intermediate",
+  tolower("as_applied_input_type_here.rds")
+) %>% 
+saveRDS(aa_input_sf, .)
+```

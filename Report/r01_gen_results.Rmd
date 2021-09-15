@@ -1,0 +1,765 @@
+
+```{r read-data-sets, results = "hide", include = TRUE}
+input_type <- "_input_type_here_"
+
+#/*----------------------------------*/
+#' ## Read in datasets for visualization 
+#/*----------------------------------*/
+analysis_data <- here("Data/Growers", ffy, "Analysis-Ready/analysis_data.rds") %>% 
+  readRDS() %>% 
+  setnames(
+    paste0(tolower(input_type), "_rate"),
+    "input_rate"
+  )
+
+if (list.files(here("Data/Growers", ffy, "TrialDesign"), pattern = ".shp") %>%
+  length() > 1){
+  trial_design <- here("Data/Growers", ffy, paste0("TrialDesign/trial-design-", tolower(input_type), ".shp")) %>% 
+  st_read() %>% 
+  setnames(names(.), tolower(names(.))) %>% 
+  st_transform_utm() %>% 
+  mutate(type = tolower(type))
+}else{
+  trial_design <- here("Data/Growers", ffy, "TrialDesign/trial-design.shp") %>% 
+  st_read() %>% 
+  setnames(names(.), tolower(names(.))) %>% 
+  st_transform_utm() %>% 
+  mutate(type = tolower(type))
+  }
+
+yield_polygons <- readRDS(here("Data/Growers", ffy, "Intermediate/yield_polygons.rds"))
+
+input_data <- readRDS(
+  here(
+    "Data/Growers", ffy, "Intermediate",
+    paste0("as_applied_", tolower(input_type), ".rds")
+  )
+)
+
+w_trial_info <- filter(
+  trial_info,
+  input_type == "_input_type_here_"
+)
+
+```
+
+
+```{r generate-results, echo = F, results = "hide"}
+#/*=================================================*/
+#' # Define functions
+#/*=================================================*/
+get_input <- function(opt_gc_data, c_type, w_zone){
+  opt_gc_data[
+    type == c_type & zone_txt == paste0("Zone ", w_zone), 
+    input_rate
+  ] %>% 
+  round(digits = 2) %>% 
+  format(nsmall = 2)
+}
+
+get_pi <- function(opt_gc_data, c_type, w_zone){
+  opt_gc_data[
+    type == c_type & zone_txt == paste0("Zone ", w_zone),
+    profit_hat
+  ] %>% 
+  round(digits = 2) %>% 
+  format(nsmall = 2)
+}
+
+get_pi_dif <- function(pi_dif_test_zone, w_zone){
+  pi_dif_test_zone[
+    zone_txt == paste0("Zone ", w_zone), 
+    point_est_dif
+  ] %>% 
+  round(digits = 2) %>% 
+  format(nsmall = 2)
+}
+
+get_pi_ci_zone <- function(pi_dif_test_zone, w_zone){
+
+  pi_up <- pi_dif_test_zone[
+    zone_txt == paste0("Zone ", w_zone), 
+    point_est_dif + 1.96 * point_est_dif_se
+  ] %>% 
+  round(digits = 2) %>% 
+  format(nsmall = 2)
+
+  pi_low <- pi_dif_test_zone[
+    zone_txt == paste0("Zone ", w_zone), 
+    point_est_dif - 1.96 * point_est_dif_se
+  ] %>% 
+  round(digits = 2) %>% 
+  format(nsmall = 2)
+
+  return(paste0("$", pi_low, " and $", pi_up))
+
+}
+
+get_t_value <- function(pi_dif_test_zone, w_zone){
+  pi_dif_test_zone[
+    zone_txt == paste0("Zone ", w_zone), 
+    t
+  ] %>% 
+  round(digits = 2) %>% 
+  format(nsmall = 2)
+} 
+
+#/*----------------------------------*/
+#' ## Read in all the analysis results 
+#/*----------------------------------*/
+results <- readRDS(here("Reports", "Growers", ffy, "analysis_results.rds")) %>% 
+  filter(input_type == "_input_type_here_")
+
+data_sf <- results$data[[1]]
+field_vars <- results$field_vars[[1]]
+field_plots <- results$field_plots[[1]]
+eval_data <- results$eval_data[[1]]
+opt_gc_data <- results$opt_gc_data[[1]]
+whole_profits_test <- results$whole_profits_test[[1]]
+pi_dif_test_zone <- results$pi_dif_test_zone[[1]]
+
+num_zones <- data_sf$zone_txt %>% 
+  unique() %>% 
+  length()
+
+#/*----------------------------------*/
+#' ## Get the aspect ratio of the field
+#/*----------------------------------*/
+field_bbox <- st_bbox(analysis_data)
+
+sn_length <- field_bbox["ymax"] - field_bbox["ymin"]
+ew_length <- field_bbox["xmax"] - field_bbox["xmin"]
+
+sn_ew_ratio <- sn_length / ew_length
+
+#/*----------------------------------*/
+#' ## Trial design information
+#/*----------------------------------*/
+dict_td <- dictionary[type == "trial_design", ]
+col_list <- dict_td[, column]
+
+trial_design <- make_var_name_consistent(
+  trial_design, 
+  dict_td 
+) %>% 
+setnames(
+  paste0("tgt_", tolower(input_type)), 
+  "tgti"
+)
+
+if (input_type == "N") {
+  trial_design <- mutate(trial_design, 
+    tgti = convert_N_unit(
+      input_data_n$form, 
+      input_data_n$unit, 
+      tgti, 
+      field_data$reporting_unit
+    ) + n_base_rate
+  )
+} else if (input_type == "S") {
+  #--- seed rate conversion ---#
+  if (any(trial_design$tgti > 10000)){
+    #--- convert to K ---#
+    trial_design <- mutate(trial_design, tgti = tgti / 1000)
+  }
+}
+
+tgti_ls <- unique(trial_design$tgti) 
+tgti_ls <- tgti_ls[order(tgti_ls)]
+
+#/*=================================================*/
+#' # Figures and Tables
+#/*=================================================*/
+
+
+
+#/*----------------------------------*/
+#' ## summary table
+#/*----------------------------------*/
+sum_tab <- data.table::copy(opt_gc_data) %>% 
+  .[order(zone_txt, type),] %>% 
+  .[, .(zone_txt, type, yield_hat, input_rate)] %>% 
+  .[, type := case_when(
+    type == "gc" ~ "Grower-chosen",
+    type == "opt_v" ~ "Optimal site-specific",
+  )] %>% 
+  .[, input_rate := round(input_rate, digits = 1)] %>% 
+  .[, yield_hat := round(yield_hat, digits = 1)] %>% 
+  setnames(names(.), c("Zone", "Strategy", "Yield (bu/acre)", "_input_full_name_here_c_ Rate")) %>% 
+  flextable() %>% 
+  font(fontname = "Times", part = "all") %>% 
+  hline(
+    i = seq(2, num_zones * 2, by = 2),
+    border = fp_border(
+      color = "black",
+      width = 1
+    )
+  ) %>% 
+  merge_v(
+    j = 1
+  ) %>% 
+  flextable::align(
+    align = "center",
+    part = "all"
+  ) %>% 
+  fontsize(
+    size = 12,
+    part = "all"
+  ) %>% 
+  autofit() %>% 
+  fix_border_issues()  
+
+
+#/*----------------------------------*/
+#' ## Whole-field profit comparison 
+#/*----------------------------------*/
+
+
+g_whole_pi <- ggplot(data = whole_profits_test) +
+  geom_errorbar(
+    aes(
+    ymin = point_est_dif - point_est_dif_se * 1.96, 
+    ymax = point_est_dif + point_est_dif_se * 1.96, 
+    x = type
+    ),
+    size = 0.8
+  ) +
+  geom_point(
+    aes(
+      y = point_est_dif,
+      x = type
+    ),
+    size = 4,
+    color = "red"
+  ) +
+  geom_hline(yintercept = 0, color = "red", size = 1.5) +
+  theme_bw() +
+  ylab("Difference in Net Revenue ($/acre)") +
+  xlab("") +
+  theme(
+    axis.title.x = element_text(size = 12, vjust = -1),
+    axis.title.y = element_text(size = 12),
+    axis.text.x = element_text(size = 9),
+    axis.text.y = element_text(size = 9)
+  ) +
+  fig_theme_nonsp
+
+#/*----------------------------------*/
+#' ## Trial-design
+#/*----------------------------------*/
+if (sn_ew_ratio > 1.1) {
+
+  tm_tgti <- tm_shape(trial_design) +
+    tm_fill(
+      col = "tgti", 
+      palette = "Greens",
+      title = "Targeted\n_input_full_name_here_c_ Rate\n(_unit_here_)",
+      # legend.is.portrait = FALSE,
+      style = "cat"
+    ) +
+    tm_layout_to_add + 
+    tm_layout(
+      # legend.outside.position = "bottom",
+      legend.position = c(0.25, 0.25)
+    )
+
+} else {
+
+  tm_tgti <- tm_shape(trial_design) +
+    tm_fill(
+      col = "tgti", 
+      palette = "Greens",
+      title = "Targeted _input_full_name_here_c_ Rate (_unit_here_)",
+      legend.is.portrait = FALSE,
+      style = "cat"
+    ) +
+    tm_layout_to_add + 
+    tm_layout(
+      legend.outside.position = "bottom",
+      legend.position = c(0.25, 0.25)
+    )
+
+}
+
+#/*----------------------------------*/
+#' ## As-planted Seed Rate
+#/*----------------------------------*/
+
+input_plot_data <- trial_design %>% 
+  filter(type != "headland") %>% 
+  input_data[., ]
+
+if (sn_ew_ratio > 1.1) {
+  tm_input_aa <- tm_shape(input_plot_data) +
+    tm_fill(
+      col = "input_rate", 
+      palette = "Greens",
+      title = "As-applied\n_input_full_name_here_c_ Rate\n(_unit_here_)",
+      # legend.is.portrait = FALSE,
+      style = "cont"
+    ) +
+    tm_layout_to_add + 
+    tm_layout(
+      # legend.outside.position = "bottom",
+      legend.position = c(0.25, 0.25)
+    )
+
+} else {
+ tm_input_aa <- tm_shape(input_plot_data) +
+  tm_fill(
+    col = "input_rate", 
+    palette = "Greens",
+    title = "As-applied _input_full_name_here_c_ Rate (_unit_here_)",
+    legend.is.portrait = FALSE,
+    style = "cont"
+  ) +
+  tm_layout_to_add + 
+  tm_layout(
+    legend.outside.position = "bottom",
+    legend.position = c(0.25, 0.25)
+  )
+ 
+}
+
+#/*----------------------------------*/
+#' ## Raw yield
+#/*----------------------------------*/
+ry_plot_data <- trial_design %>% 
+  filter(type != "Headland") %>% 
+  yield_polygons[., ]
+
+if (sn_ew_ratio > 1.1) {
+  tm_ry <- tm_shape(filter(ry_plot_data, flag_bad == 0)) +
+    tm_fill(
+      col = "yield_vol", 
+      palette = "YlOrBr",
+      title = "Yield\n(bu/acre)",
+      # legend.is.portrait = FALSE,
+      style = "cont"
+    ) +
+    tm_layout_to_add + 
+    tm_layout(
+      # legend.outside.position = "bottom",
+      legend.position = c(0.25, 0.25)
+    )
+} else {
+  tm_ry <- tm_shape(filter(ry_plot_data, flag_bad == 0)) +
+    tm_fill(
+      col = "yield_vol", 
+      palette = "YlOrBr",
+      title = "Yield \n (bu/acre)",
+      legend.is.portrait = FALSE,
+      style = "cont"
+    ) +
+    tm_layout_to_add + 
+    tm_layout(
+      legend.outside.position = "bottom",
+      legend.position = c(0.25, 0.25)
+    )
+}
+ 
+#/*----------------------------------*/
+#' ## Yield (processed)
+#/*----------------------------------*/
+
+analysis_data_td <- trial_design %>% 
+  filter(type != "Headland") %>% 
+  analysis_data[., ]
+
+if (sn_ew_ratio > 1.1) {
+  tm_p_yield <- tm_shape(analysis_data_td) +
+    tm_fill(
+      col = "yield_vol", 
+      palette = "YlOrBr",
+      title = "Yield\n(bu/acre)",
+      # legend.is.portrait = FALSE,
+      style = "cont"
+    ) +
+    tm_layout_to_add + 
+    tm_layout(
+      # legend.outside.position = "bottom",
+      legend.position = c(0.25, 0.25)
+    )
+} else {
+  tm_p_yield <- tm_shape(analysis_data_td) +
+    tm_fill(
+      col = "yield_vol", 
+      palette = "YlOrBr",
+      title = "Yield (bu/acre)",
+      legend.is.portrait = FALSE,
+      style = "cont"
+    ) +
+    tm_layout_to_add + 
+    tm_layout(
+      legend.outside.position = "bottom",
+      legend.position = c(0.25, 0.25)
+    )
+}
+
+#/*----------------------------------*/
+#' ## Seed rate (processed)
+#/*----------------------------------*/
+if (sn_ew_ratio > 1.1) {
+  tm_p_input <- tm_shape(analysis_data_td) +
+    tm_fill(
+      col = "input_rate", 
+      palette = "YlGn",
+      title = "_input_full_name_here_c_ Rate\n(_unit_here_)",
+      # legend.is.portrait = FALSE,
+      style = "cont"
+    ) +
+    tm_layout_to_add + 
+    tm_layout(
+      # legend.outside.position = "bottom",
+      legend.position = c(0.25, 0.25)
+    )
+} else {
+  tm_p_input <- tm_shape(analysis_data_td) +
+    tm_fill(
+      col = "input_rate", 
+      palette = "YlGn",
+      title = "_input_full_name_here_c_ Rate (_unit_here_)",
+      legend.is.portrait = FALSE,
+      style = "cont"
+    ) +
+    tm_layout_to_add + 
+    tm_layout(
+      legend.outside.position = "bottom",
+      legend.position = c(0.25, 0.25)
+    )
+}
+
+#/*----------------------------------*/
+#' ## Management zone
+#/*----------------------------------*/
+
+data_sf_td <- trial_design %>% 
+  filter(type != "Headland") %>% 
+  data_sf[., ]
+
+if (sn_ew_ratio > 1.1) {
+  tm_beta_input <- tm_shape(data_sf_td) +
+    tm_fill(
+      col = "b_slope", 
+      palette = "PuRd",
+      title = "Estimated Yield\nResponse Parameter",
+      # legend.is.portrait = FALSE,
+      style = "cont"
+    ) +
+    tm_layout_to_add + 
+    tm_layout(
+      # legend.outside.position = "bottom",
+      legend.position = c(0.25, 0.25)
+    )
+} else {
+  tm_beta_input <- tm_shape(data_sf_td) +
+    tm_fill(
+      col = "b_slope", 
+      palette = "PuRd",
+      title = "Estimated Yield Response Parameter",
+      legend.is.portrait = FALSE,
+      style = "cont"
+    ) +
+    tm_layout_to_add + 
+    tm_layout(
+      legend.outside.position = "bottom",
+      legend.position = c(0.25, 0.25)
+    )
+}
+
+if (sn_ew_ratio > 1.1) {
+  tm_zone_input <- tm_shape(data_sf_td) +
+    tm_fill(
+      col = "zone_txt", 
+      palette = "YlGnBu",
+      title = "Management\nZones",
+      # legend.is.portrait = FALSE
+    ) +
+    tm_layout_to_add + 
+    tm_layout(
+      # legend.outside.position = "bottom",
+      legend.position = c(0.25, 0.25)
+    )
+} else {
+  tm_zone_input <- tm_shape(data_sf_td) +
+    tm_fill(
+      col = "zone_txt", 
+      palette = "YlGnBu",
+      title = "Management Zones",
+      legend.is.portrait = FALSE
+    ) +
+    tm_layout_to_add + 
+    tm_layout(
+      legend.outside.position = "bottom",
+      legend.position = c(0.25, 0.25)
+    )
+}
+
+#/*----------------------------------*/
+#' ## Yield response function by zone
+#/*----------------------------------*/
+g_ys_zone <- ggplot() +
+  geom_point(
+    data = filter(
+      data_sf, 
+      input_rate >= min(eval_data$input_rate),
+      input_rate <= max(eval_data$input_rate),
+    ), 
+    aes(y = yield, x = input_rate),
+    size = 0.4
+  ) +
+  geom_line(
+    data = filter(eval_data, type == "opt_v"),
+    aes(y = yield_hat, x = input_rate)
+  ) +
+  geom_ribbon(
+    data = filter(eval_data, type == "opt_v"),
+    aes(
+      ymin = yield_hat - yield_hat_se * 1.96, 
+      ymax = yield_hat + yield_hat_se * 1.96, 
+      x = input_rate
+    ),
+    fill = "blue",
+    alpha = 0.3
+  ) +
+  facet_grid(. ~ zone_txt) +
+  xlab("_input_full_name_here_c_ Rate (_unit_here_)") +
+  ylab("Yield (bu/acre)") +
+  theme(
+    axis.title.x = element_text(size = 12, vjust = -1),
+    axis.title.y = element_text(size = 12),
+    axis.text.x = element_text(size = 12, angle = 90),
+    axis.text.y = element_text(size = 12),
+    strip.text = element_text(size = 12)
+  ) +
+  fig_theme_nonsp
+
+#/*----------------------------------*/
+#' ## Interaction explanation
+#/*----------------------------------*/
+gen_yield_chigh <- function(x) {
+  80 + 50 * log(x - 20)
+}
+
+gen_yield_clow <- function(x) {
+  -30 + 90 * log(x - 25)
+}
+
+plot_data <- data.table(x = seq(27, 40, length =1000)) %>% 
+  .[,y_chigh := gen_yield_chigh(x)] %>% 
+  .[,y_clow := gen_yield_clow(x)] %>% 
+  melt(id.var = "x") %>% 
+  .[, type := case_when(
+    variable == "y_chigh" ~ "c_high",
+    variable == "y_clow" ~ "c_low"
+  )]
+
+g_int <- ggplot(plot_data) +
+  geom_line(aes(y = value, x = x, color = type)) +
+  labs(x = 'Seed Rate', y ='Yield') +
+  geom_hline(yintercept = 27) +
+  geom_vline(xintercept = 27) +
+  scale_color_manual(
+    values = c(
+      "c_high" = "#000000", 
+      "c_low" = "#C87700"
+    )
+  ) +
+  annotate(
+    'text',
+    x = 32, y = 218,
+    parse = TRUE, 
+    label = ('f(seed, c^{high})'),
+    color = "#000000",
+    size = 4,
+    family = "Times",
+    fontface = 3
+  ) +
+  annotate('text',
+    x = 37,
+    y = 164,
+    parse = TRUE,
+    label = 'f(seed, c^{low})',
+    color = "#C87700",
+    size = 4,
+    family = "Times",
+    fontface = 3
+  ) +
+  theme(
+    legend.position = "none",
+  ) +
+  fig_theme_nonsp
+
+```
+
+```{r rx-results-map, results = "hide"}
+#/*=================================================*/
+#' # Rx map if the status-quo rate is Rx
+#/*=================================================*/ 
+
+if (w_trial_info$gc_type == "Rx") {
+
+#/*----------------------------------*/
+#' ## Read Rx data
+#/*----------------------------------*/
+  Rx <- st_read(w_trial_info$gc_rate) %>% 
+    st_set_crs(4326) %>% 
+    st_transform(st_crs(data_sf)) %>%
+    st_make_valid() %>%
+    setnames(names(.), tolower(names(.)))
+
+  dict_input <- dictionary[type == paste0("Rx-", tolower(input_type)), ]
+  col_list <- dict_input[, column]
+
+  Rx <- make_var_name_consistent(
+    Rx, 
+    dict_input 
+  )
+
+  #/*----------------------------------*/
+  #' ## Unit conversion
+  #/*----------------------------------*/
+  if (input_type == "N") {
+    Rx <- mutate(Rx, 
+      tgti = convert_N_unit(
+        input_data_n$form, 
+        input_data_n$unit, 
+        tgti, 
+        field_data$reporting_unit
+      ) 
+      # + n_base_rate # add base N rate
+    )
+  } else if (input_type == "S") {
+    #--- seed rate conversion ---#
+    if (any(Rx$tgti > 10000)){
+      #--- convert to K ---#
+      Rx <- mutate(Rx, tgti = tgti / 1000)
+    }
+  }
+
+
+} else { # if no Rx file
+  
+  Rx <- mutate(trial_design, tgti = w_trial_info$gc_rate[[1]]) %>% 
+    dplyr::select(tgti)
+
+}
+
+
+#/*----------------------------------*/
+#' ## Optimal input rate and gc side by side
+#/*----------------------------------*/
+opt_input_sf <- data_sf %>% 
+  select(opt_input) %>% 
+  mutate(type = "Estimated Optimal Rate") %>% 
+  rename(value = opt_input) %>% 
+  rename(geometry = x)  
+
+Rx <- Rx %>% 
+  select(tgti) %>% 
+  mutate(type = "Grower-chosen Rates") %>% 
+  rename(value = tgti)
+
+data_plot <- rbind(opt_input_sf, Rx) %>% 
+  mutate(type = factor(type, levels = c("Grower-chosen Rates", "Estimated Optimal Rate")))
+
+tm_opt_gc <- tm_shape(data_plot) +
+  tm_polygons(
+    col = "value",
+    palette = "Greens",
+    # legend.is.portrait = FALSE,
+    style = "cont",
+    title = "_input_full_name_l_\nRate (_unit_here_)",
+    lwd = 0.2
+  ) +
+  tm_facets(
+    by = "type",
+    free.coords = FALSE
+  ) +
+  tm_layout_to_add + 
+  tm_layout(
+    # legend.outside.position = "bottom",
+    legend.position = c(0.25, 0.25)
+  )
+
+```
+
+```{r profit-dif-map-gen}
+
+
+if (sn_ew_ratio > 1.1) {
+  tm_pi_dif_zones <- tm_shape(data_sf) +
+  tm_fill(
+    col = "pi_dif",
+    palette = "Reds",
+    title = "Difference in\nProfit ($/acre)",
+    # legend.is.portrait = FALSE,
+    style = "cont"
+  ) +
+  tm_layout_to_add + 
+  tm_layout(
+    # legend.outside.position = "bottom",
+    legend.position = c(0.25, 0.25)
+  )
+} else {
+  tm_pi_dif_zones <- tm_shape(data_sf) +
+  tm_fill(
+    col = "pi_dif",
+    palette = "Reds",
+    title = "Difference in Profit ($/acre)",
+    legend.is.portrait = FALSE,
+    style = "cont"
+  ) +
+  tm_layout_to_add + 
+  tm_layout(
+    legend.outside.position = "bottom",
+    legend.position = c(0.25, 0.25)
+  )
+} 
+```
+
+```{r }
+#/*----------------------------------*/
+#' ## profit difference by zone with CI
+#/*----------------------------------*/
+fig_data <- data.table::copy(pi_dif_test_zone) %>% 
+  mutate(
+    pi_dif_upper = point_est_dif + 1.96 * point_est_dif_se,
+    pi_dif_lower = point_est_dif - 1.96 * point_est_dif_se
+  )
+
+g_pi_dif_zone <- ggplot(data = fig_data) +
+  geom_point(
+    aes(
+      y = point_est_dif,
+      x = zone_txt
+    ), 
+    size = 3, 
+    color = "red"
+  ) +
+  geom_errorbar(
+    aes(
+    ymin = pi_dif_lower, 
+    ymax = pi_dif_upper, 
+    x = zone_txt
+    ),
+    size = 1
+  ) +
+  geom_hline(
+    yintercept = 0, 
+    color = "red", 
+    size = 1.5
+  ) +
+  theme_bw() +
+  ylab("Difference in Net Revenue ($/acre)") +
+  theme(
+    axis.title.x = element_text(size = 12, vjust = -1),
+    axis.title.y = element_text(size = 12),
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
+    strip.text = element_text(size = 12)
+  ) +
+  fig_theme_nonsp
+ 
+```
+

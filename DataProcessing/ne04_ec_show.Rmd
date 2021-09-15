@@ -1,0 +1,23 @@
+# EC data
+
+**Note:** EC data has been downloaded and processed already. Visualization of the data below.
+
+
+```{r ec-read}  
+ec <- readRDS("Intermediate/ec.rds")
+```
+
+## Visualization
+
+```{r }
+lapply(names(ec), 
+  function(x) 
+  tm_shape(ec[x, ]) + 
+  tm_raster() +
+  tm_layout(
+    legend.title.size = 3
+  )
+)
+```
+
+

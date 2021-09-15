@@ -1,0 +1,107 @@
+---
+title: "Trial Design Generation Report for _field-year-here_"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+    toc_float:
+      collapsed: true
+    number_sections: true
+---
+
+<style type="text/css">
+
+body{ /* Normal  */
+      font-size: 20px;
+  }
+td {  /* Table  */
+  font-size: 16px;
+}
+h1.title {
+  font-size: 56px;
+}
+h1 { /* Header 1 */
+  font-size: 48px;
+}
+h2 { /* Header 2 */
+    font-size: 36px;
+}
+h3 { /* Header 3 */
+  font-size: 24px;
+}
+code.r{ /* Code block */
+    font-size: 16px;
+}
+</style>
+
+```{r setup, cache = F, echo = F}
+library(knitr)
+knitr::opts_chunk$set(
+  cache = FALSE,
+  echo = TRUE,
+  error = TRUE,
+  warning = FALSE,
+  cache.lazy = FALSE,
+  message = FALSE,
+  fig.width = 12, 
+  fig.height = 12
+)
+```
+
+```{r packages, cache = FALSE}
+# === packages ===#
+library(pracma)
+library(furrr)
+library(exactextractr)
+library(sp)
+library(sf)
+library(here)
+library(agricolae)
+library(lwgeom)
+library(measurements)
+library(stringr)
+library(tmap)
+library(raster)
+library(tidyverse)
+library(data.table)
+library(purrr)
+```
+
+```{r preparations, cache = F}
+source(
+  "https://github.com/tmieno2/DIFM/blob/master/Functions/prepare.R?raw=TRUE",
+  local = TRUE
+)
+
+#--- github ---#
+source("https://raw.githubusercontent.com/brittanikedge/DIFM/main/Functions.R")
+
+#--- define field-year ---#
+ffy <- "_field-year-here_"  
+json_file <- "_json-file-here_"
+
+```
+
+```{r map-layout, cache = TRUE}
+tm_layout_to_add <- tm_layout(
+  legend.outside = "TRUE",
+  frame = FALSE,
+  legend.title.size = 2,
+  legend.text.size = 1.5
+)
+```
+
+# Get Experiment Parameters
+
+```{r }
+trial_data <- 
+readRDS(
+  here("Data", "Growers", ffy, "TrialDesign/trial_data.rds")
+) 
+```   
+
+## Rates specifications
+
+```{r }
+dplyr::select(trial_data, gc_rate, min_rate, max_rate)
+```

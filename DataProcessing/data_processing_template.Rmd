@@ -1,0 +1,118 @@
+---
+title: "title-here for field-year-here"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+    toc_float:
+      collapsed: true
+    number_sections: true
+---
+
+<style type="text/css">
+
+body{ /* Normal  */
+      font-size: 20px;
+  }
+td {  /* Table  */
+  font-size: 16px;
+}
+h1.title {
+  font-size: 56px;
+}
+h1 { /* Header 1 */
+  font-size: 48px;
+}
+h2 { /* Header 2 */
+    font-size: 36px;
+}
+h3 { /* Header 3 */
+  font-size: 24px;
+}
+code.r{ /* Code block */
+    font-size: 16px;
+}
+</style>
+
+```{r setup, cache = F, echo = F}
+library(knitr)
+knitr::opts_chunk$set(
+  cache = FALSE,
+  echo = TRUE,
+  error = TRUE,
+  warning = FALSE,
+  cache.lazy = FALSE,
+  message = FALSE,
+  fig.width = 12, 
+  fig.height = 12
+)
+```
+
+```{r packages, cache = FALSE}
+# === packages ===#
+library(raster)
+library(sf)
+library(here)
+library(ggplot2)
+library(tmap)
+library(patchwork)
+library(measurements)
+library(scam)
+library(parallel)
+library(future.apply)
+library(dplyr)
+library(tidyverse)
+library(modelsummary)
+library(jsonlite)
+library(data.table)
+library(exactextractr)
+library(future.apply)
+```
+
+```{r preparations, cache = F}
+source(
+  "https://github.com/tmieno2/DIFM/blob/master/Functions/prepare.R?raw=TRUE",
+  local = TRUE
+)
+
+#--- github ---#
+source("https://raw.githubusercontent.com/brittanikedge/DIFM/main/Functions.R")
+
+#--- define field-year ---#
+ffy <- "field-year-here"  
+
+#--- read the variable name dictionary ---#
+dictionary <- fromJSON(
+  file.path(
+    here("Data", "CommonData"),
+    "variable_name_dictionary.json"
+  ),
+  flatten = TRUE
+) %>% 
+data.table()
+
+#--- define field parameters ---#
+source(
+  get_r_file_name("Functions/unpack_field_parameters.R"), 
+  local = TRUE
+)
+
+#---  ---#
+plan(multiprocess, workers = detectCores() - 2)
+```
+
+```{r set-root-dir}
+opts_knit$set(root.dir = here("Data", "Growers", ffy))
+```
+
+```{r map-layout, cache = TRUE}
+tm_layout_to_add <- tm_layout(
+  legend.outside = "TRUE",
+  frame = FALSE,
+  legend.title.size = 2,
+  legend.text.size = 1.5
+)
+```
+
+
+

@@ -1,0 +1,8 @@
+
+```{r interaction-_ch_var_here_no_underbar_, fig.cap = "Yield response curves, by _ch_var_here_", fig.height = 5}
+
+print(field_plots$g_map[[_i-here_]] | field_plots$g_ys_char[[_i-here_]])
+
+```
+
+

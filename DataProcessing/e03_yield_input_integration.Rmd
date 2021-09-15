@@ -1,0 +1,348 @@
+# Combine yield and input datasets
+
+## Preparation
+
+### Read datasets
+
+```{r }
+#--- yield ---#
+yield_polygons <- here("Data/Growers", ffy, "Intermediate/yield_polygons.rds") %>% 
+  readRDS() %>%
+  mutate(yield_area = as.numeric(st_area(.))) %>% 
+  dplyr::select(yield_id, yield_area, yield_vol, flag_bad) %>% 
+  filter(flag_bad == 0)
+
+tm_shape(yield_polygons) +
+  tm_fill(col = "yield_vol")
+
+```
+
+```{r }
+input_polygons <- trial_info %>% 
+  filter(process == TRUE) %>% 
+  rowwise() %>% 
+  mutate(
+    input_file_name = here(
+      "Data/Growers", 
+      ffy, 
+      "Intermediate", 
+      paste0("as_applied_", input_type, ".rds")
+    )
+  ) %>% 
+  mutate(
+    input_polygons = list(
+      readRDS(input_file_name)
+    )
+  ) 
+   
+``` 
+
+```{r }
+tm_inputs <- input_polygons %>% 
+  mutate(
+    tm_map = list(
+      tm_shape(input_polygons) +
+        tm_fill(
+          col = "input_rate", 
+          title = input_type
+        )
+    )
+  )
+
+tm_inputs$tm_map
+```
+
+```{r echo = F, eval = F}
+tm_inputs <- input_polygons %>% 
+  mutate(
+    tm_map = list(
+      tm_shape(input_polygons) +
+        tm_fill(
+          col = "red", 
+          title = input_type,
+          alpha = 0.4
+        )
+    )
+  )
+
+tm_inputs$tm_map
+
+```
+
+## Data alignment checks
+
+```{r }
+tm_alignment <- input_polygons %>% 
+  mutate(
+    tm_map = list(
+      tm_shape(input_polygons) +
+        tm_borders(lwd = 0.2) +
+      tm_shape(st_centroid(yield_polygons)) +
+        tm_dots(col = "blue", title = "Yield Points")
+    )
+  )
+
+tm_alignment$tm_map 
+
+```
+
+## Filter out unreliable polygons
+
+### Check the overlap and find area-weighted input rates
+
+```{r }
+
+input_pct <- input_polygons %>% 
+  mutate(
+    input_pct_data = list(
+      intersect_yield_input(
+        yield_polygons,
+        input_polygons 
+      )
+    )
+  ) %>% 
+  dplyr::select(crop, input_type, input_pct_data) %>% 
+  mutate(
+    #=== visualize overlap ===#
+    gg_overlap = list(
+      ggplot(input_pct_data) +
+      geom_histogram(aes(x = tot_sub_pct)) +
+      ggtitle(
+        paste(
+          "Histogram of the percentage of yield polygons \n overlapping with", 
+          input_type, 
+          "polygons"
+        )
+      )     
+    ),
+    #=== visualize mix of rates ===#
+    gg_dev = list(
+      ggplot(input_pct_data) +
+      geom_histogram(aes(x = dev_input_rate)) +
+      ggtitle(
+        paste(
+          "Histogram of the deviation of ",
+          input_type, 
+          "\n to its mean by yield_id"
+        )
+      )     
+    )
+  )
+
+```
+
+```{r }
+input_pct$gg_overlap
+
+input_pct$gg_dev
+```
+
+### Filter out unreliable observations
+
+```{r }
+#=== convert max_dev_table if in ha instead of ac ===#
+if(units == "metric"){
+  max_dev_table %>%
+    mutate(max_dev_allowed = max_dev_allowed*2.47105)
+}
+#=== yield data after removing unreliable inputs ===#
+yield_input_data <- input_pct %>% 
+  dplyr::select(crop, input_type, input_pct_data) %>% 
+  left_join(max_dev_table, by = c("crop", "input_type")) %>% 
+  mutate(
+    input_pct_data = list(
+      data.table::copy(input_pct_data) %>% 
+      .[tot_sub_pct > 0.9 & tot_sub_pct < 1.1, ] %>% 
+      .[dev_input_rate < max_dev_allowed, ] %>% 
+      .[, .(yield_id, input_rate)] %>% 
+      setnames(
+        "input_rate",
+        paste0(tolower(input_type), "_rate")
+      )
+    )
+  ) %>% 
+  pull(input_pct_data) %>% 
+  reduce(inner_join, by = "yield_id") %>% 
+  inner_join(yield_polygons, ., by = "yield_id")  
+
+```
+
+
+Red-filled polygons were dropped:
+
+```{r dependson = "map-layout"}
+tm_shape(st_as_sf(yield_polygons)) +
+  tm_fill(col = "red") +
+tm_shape(st_as_sf(yield_input_data)) +
+  tm_fill(col = "green") +
+tm_layout_to_add
+
+```
+
+## Yield grouping
+
+### Assign group id
+
+```{r }
+yield_id_keep <- yield_input_data %>% 
+  pull(yield_id)
+
+distance_gap_allowed <- 6 # meter
+
+group_id <- input_pct %>% 
+  dplyr::select(crop, input_type, input_pct_data) %>% 
+  left_join(max_dev_table, by = c("crop", "input_type")) %>% 
+  mutate(
+    group_change = list(
+      left_join(yield_polygons, input_pct_data, by = "yield_id") %>% 
+      filter(yield_id %in% yield_id_keep) %>% 
+      cbind(., st_coordinates(st_centroid(.))) %>% 
+      data.table() %>% 
+      #--- push down X ---#
+      .[, X_lag := data.table::shift(X, type = "lag")] %>% 
+      #--- push down Y ---#
+      .[, Y_lag := data.table::shift(Y, type = "lag")] %>% 
+      #--- calculate the distance between consecutive points ---#
+      .[, distance := sqrt((X_lag - X)^2 + (Y_lag - Y)^2)] %>% 
+      #--- take care of the first ob ---#
+      .[1, distance := 0] %>% 
+      #--- 2 yield point gaps (2+1 multiplier) ---#
+      .[, distance_gap := distance > distance_gap_allowed] %>% 
+      .[, dif_input_rate := c(0, diff(input_rate))] %>% 
+      .[, change_input_rate := abs(dif_input_rate) >= max_dev_allowed] %>% 
+      .[, (change_input_rate | distance_gap)] 
+    )
+  ) %>% 
+  ungroup() %>% 
+  pull(group_change) %>% 
+  Reduce("|", .) %>% 
+  cumsum()
+
+#/*~~~~~~~~~~~~~~~~~~~~~~*/
+#' ### Approximate minimum length of subplots
+#/*~~~~~~~~~~~~~~~~~~~~~~*/
+med_distance <- get_med_dist(yield_polygons)  
+
+# actual plot length will be longer than this
+min_obs <- round(12 / med_distance) # 12 meter
+max_obs <- round(20 / med_distance) # 24 meter
+
+yield_group_data <- yield_input_data %>% 
+  mutate(group_id = group_id + 1) %>% 
+  data.table() %>% 
+  #--- get the number of observations per group ---#
+  .[, num_obs_group := .N, by = group_id] %>% 
+  #--- get the cumulative number of observations ---#
+  .[, dummy := 1] %>% 
+  .[, cum_num := cumsum(dummy), by = group_id] %>% 
+  #--- remove observations that belong to a group with less than mim_obs ---#
+  .[num_obs_group >= min_obs, ]
+
+
+```
+
+### Assign subgroup id
+
+```{r }
+all_data_ls <- list()
+
+for (i in min_obs:max_obs) {
+
+  if (i == min_obs){
+
+    temp_sub_id <- data.table::copy(yield_group_data) %>% 
+      .[, sub_group_id := (cum_num - 1) %/% i  + 1] 
+
+    group_ls <- temp_sub_id %>% 
+      .[, num_obs_sub := .N, by = .(group_id, sub_group_id)] %>% 
+      .[, too_small := num_obs_sub < min_obs] %>% 
+      .[, drop := any(too_small), by = group_id] %>% 
+      .[drop == FALSE, group_id] %>% unique()
+
+    all_data_ls[[paste(i)]] <- temp_sub_id[group_id %in% group_ls, ] 
+
+    bad_guys <- temp_sub_id[!(group_id %in% group_ls), ]
+
+  } else {
+
+    temp_sub_id <- data.table::copy(bad_guys) %>% 
+      .[, sub_group_id := (cum_num - 1) %/% i  + 1] 
+
+    group_ls <- temp_sub_id %>% 
+      .[, num_obs_sub := .N, by = .(group_id, sub_group_id)] %>% 
+      .[, too_small := num_obs_sub < min_obs] %>% 
+      .[, drop := any(too_small), by = group_id] %>% 
+      .[drop == FALSE, group_id] %>% unique()
+
+    all_data_ls[[paste(i)]] <- temp_sub_id[group_id %in% group_ls, ] 
+
+    bad_guys <- temp_sub_id[!(group_id %in% group_ls), ]
+
+  }
+
+  if(nrow(bad_guys) == 0){
+    break
+  }
+     
+}
+
+input_var <- pluck(input_pct, "input_type") %>% 
+  tolower(.) %>% 
+  paste0(., "_rate")
+
+yield_sf <- all_data_ls %>% 
+  rbindlist() %>% 
+  .[, obs_id := .GRP, by = .(group_id, sub_group_id)] %>% 
+  st_as_sf() %>% 
+  dplyr::select(
+    any_of(c(
+      c("yield_id", "yield_vol", "obs_id"), 
+      input_var
+    ))
+  )
+
+```
+
+```{r }
+cat(
+  paste0(
+    "There are ", 
+    yield_sf$obs_id %>% unique() %>% length(),
+    " observations."
+  )
+) 
+```
+
+Please note that each of the polygons are not observations units here.
+
+```{r dependson = "map-layout"}
+#--- yield map ---#
+tm_shape(yield_sf) +
+  tm_fill(col = "yield_vol") +
+tm_layout_to_add
+```
+
+```{r }
+lapply(
+  input_var, 
+  function(x) {
+    tm_shape(yield_sf) +
+      tm_fill(col = x)
+  }
+)  
+```
+
+```{r dependson = "map-layout"}
+#--- yield map ---#
+tm_shape(yield_sf) +
+  tm_fill(col = "obs_id", style = "cont") +
+tm_layout_to_add
+```
+
+## Save
+
+```{r }
+saveRDS(yield_sf, file = here("Data", "Growers", ffy, "Intermediate/yield_group_by_obs.rds"))
+```
+
+

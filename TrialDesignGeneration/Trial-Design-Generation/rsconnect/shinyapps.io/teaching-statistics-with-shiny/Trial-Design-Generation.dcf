@@ -1,0 +1,12 @@
+name: Trial-Design-Generation
+title: Trial-Design-Generation
+username:
+account: teaching-statistics-with-shiny
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 3668742
+bundleId: 4247647
+url: https://teaching-statistics-with-shiny.shinyapps.io/Trial-Design-Generation/
+when: 1613798402.14642
+asMultiple: FALSE
+asStatic: FALSE

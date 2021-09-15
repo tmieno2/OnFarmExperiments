@@ -1,0 +1,195 @@
+# Preparation
+
+## Read in all the datasets
+
+```{r }
+#--- yield ---#
+yield_sf <- readRDS(
+  file = here(
+    "Data/Growers", ffy, 
+    "Intermediate/yield_group_by_obs.rds"
+  )
+)
+```
+
+```{r eval = topo_eval_here}
+#--- Topography data ---#
+topo <- readRDS("Intermediate/topography.rds")
+```
+
+```{r eval = ssurgo_eval_here}
+#--- SSURGO data ---#
+ssurgo_sf <- readRDS("Intermediate/ssurgo.rds") %>%
+  st_transform(st_crs(yield_sf))
+```
+
+```{r eval = ec_eval_here}
+#--- EC ---#
+ec <- readRDS("Intermediate/ec.rds")
+```
+
+```{r eval = gss_eval_here}
+#--- Soil sampling ---#
+gss <- readRDS("Intermediate/gss.rds")
+```
+
+# Overlay and merge the datasets 
+
+## Topography
+
+```{r , results = "hide", eval = topo_eval_here, echo = topo_eval_here}
+topo_values <- topo %>%
+  stars_to_stack() %>%
+  exact_extract(., st_transform(yield_sf, st_crs(.))) %>%
+  rbindlist(idcol = "rowid") %>%
+  .[,
+    lapply(.SD, weighted.mean, w = coverage_fraction),
+    by = rowid,
+    .SDcols = paste0("layer.", 1:length(topo))
+  ] %>%
+  .[, rowid := NULL] %>%
+  setnames(names(.), names(topo))
+
+yield_sf <- cbind(yield_sf, topo_values)
+```
+
+## SSURGO
+
+```{r , results = "hide", eval = ssurgo_eval_here, echo = ssurgo_eval_here}
+ssurgo_values <- dplyr::select(yield_sf, yield_id) %>%
+  st_intersection(., ssurgo_sf) %>%
+  mutate(area = as.numeric(st_area(.))) %>%
+  data.table() %>%
+  .[, area_pct := area / sum(area), by = yield_id] %>%
+  .[,
+    lapply(.SD, weighted.mean, w = area_pct),
+    by = yield_id,
+    .SDcols = c("clay", "sand", "silt", "water_storage")
+  ]
+
+yield_sf <- left_join(yield_sf, ssurgo_values, by = "yield_id")
+```
+
+## EC
+
+```{r , results = "hide", eval = ec_eval_here, echo = ec_eval_here}
+ec_values <- ec %>%
+  stars_to_stack() %>%
+  exact_extract(., st_transform(yield_sf, st_crs(.))) %>%
+  rbindlist(idcol = "rowid") %>%
+  .[,
+    lapply(.SD, weighted.mean, w = coverage_fraction),
+    by = rowid,
+    .SDcols = paste0("layer.", 1:length(ec))
+  ] %>%
+  .[, rowid := NULL] %>%
+  setnames(names(.), names(ec))
+
+yield_sf <- cbind(yield_sf, ec_values)
+```
+
+# Aggregate the data to `obs_id` 
+
+```{r }
+data_by_obs <- yield_sf %>% 
+  mutate(area = as.numeric(st_area(.))) %>%
+  st_drop_geometry() %>% 
+  data.table() %>% 
+  .[, yield_id := NULL] %>% 
+  .[, area_pct := area / sum(area), by = obs_id] %>% 
+  .[, area := NULL] %>% 
+  .[, 
+    lapply(.SD, weighted.mean, w = area_pct), 
+    by = obs_id, 
+    .SDcols = names(.) %>% 
+      .[!str_detect(., c("area_pct|obs_id"))]
+  ]  
+
+```
+
+# Yield Aggregation
+
+Here, we create polygons surrounding all the polygons within the same id:
+
+```{r }
+plan(multiprocess, workers = detectCores() - 2)
+
+id_ls <- yield_sf$obs_id %>% unique()
+
+all_polygons <- future_lapply(
+    id_ls, 
+    function(x) make_convex_hull(yield_sf, x)
+  ) %>% 
+  do.call("rbind", .) %>% 
+  st_set_crs(st_crs(yield_sf))
+
+#--- merge the data values to the obs_id polygons ---#
+final_data <- left_join(all_polygons, data_by_obs, by = "obs_id")  
+
+```
+
+# Visualize some variables
+
+Show the data:
+
+```{r }
+final_data
+```  
+
+## Summary tables
+
+```{r }
+get_non_na_num <- function(x) {
+
+  sum(!is.na(x)) %>% 
+    round(digits = 0)
+
+}
+
+final_data %>% 
+  st_drop_geometry() %>% 
+  data.frame() %>% 
+  datasummary(
+    All(.) ~ Mean + (Std.Dev. = SD) + (`Number of Non-NA observations` = get_non_na_num),
+    data = .
+  )
+
+```
+
+## Yield
+
+```{r dependson = "map-layout"}
+tm_shape(final_data) +
+  tm_fill(col = "yield_vol") +
+tm_layout_to_add
+```  
+
+```{r }
+trial_info %>% 
+  filter(process = TRUE) %>% 
+  rowwise() %>% 
+  mutate(
+    tm_viz = list(
+      tm_shape(final_data) +
+      tm_fill(
+        col = paste0(
+          tolower(input_type),
+          "_rate"
+        )
+      ) +
+      tm_layout_to_add
+    )
+  ) %>% 
+  pluck("tm_viz")
+```
+
+# Save
+
+```{r }
+saveRDS(final_data, file = here("Data", "Growers", ffy,"Analysis-Ready/analysis_data.rds"))
+
+# final_data <- readRDS(file = here("Data", "Growers", ffy,"Analysis-Ready/analysis_data.rds"))
+```
+
+ 
+

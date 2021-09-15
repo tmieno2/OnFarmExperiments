@@ -1,0 +1,755 @@
+---
+title: "Data Availability and Error Check"
+output: html_document
+---
+
+```{r pacakges, cache = FALSE, echo = FALSE}
+# === packages ===#
+library(data.table)
+library(here)
+library(flextable)
+library(officer)
+library(tidyverse)
+library(DT)
+```
+
+```{r, cache = F, echo = F}
+library(knitr)
+knitr::opts_chunk$set(
+  cache = FALSE,
+  error = TRUE,
+  echo = FALSE,
+  warning = FALSE,
+  cache.lazy = FALSE,
+  fig.retina = 6,
+  fig.height = 9,
+  fig.width = 9,
+  message = FALSE
+)
+```
+
+# Field Parameter Data Anomalies 
+
+```{r }
+field_data <- jsonlite::fromJSON(
+  here("Data", "CommonData", "field_parameter.json"),
+  flatten = TRUE
+) %>%
+data.table() %>%
+.[, field_year := paste(farm, field, year, sep = "_")]
+
+``` 
+
+## Duplicate entries
+
+```{r }
+duplicate_entries <- field_data[, .(num_entries = .N), by = field_year] %>% 
+  .[num_entries > 1, ]
+```
+
+Here is the list of `farm_field_year` that has duplicate entries:
+
+```{r }
+flextable(duplicate_entries) 
+```
+
+## Folders without an entry in the field parameter data
+
+
+```{r }
+all_dirs <- list.files(here("Data", "Growers"))  
+
+is_dir_valid <- all_dirs %in% field_year_ls   
+```
+
+Here is the list of data directories that do not have any entry in `field_parameter.json`:
+
+```{r }
+all_dirs[!is_dir_valid]
+```
+
+This happened because `initiate_fp_entry()` (available in `tools_for_trial_design_coordinators.R`) was not used to create the folders for these experiments. 
+
+## Field parameter table
+
+```{r }
+datatable(dplyr::select(field_data, !starts_with("input"), - field_year))
+
+```
+
+
+# Field parameter (except input data) anomalies
+
+```{r error = TRUE}
+#--- field data parameter dictionary ---#
+# does not include input parameter dictionary
+
+field_data_dict <- jsonlite::fromJSON(
+  file.path(
+    here("Data", "CommonData"),
+    "field_parameter_dictionary.json"
+  ),
+  flatten = TRUE
+) %>%
+data.table()
+
+check_validity <- function (ffy) {
+
+  w_field_data <- field_data[field_year == ffy, ]
+  # w_field_data <- field_data[1, ]
+
+  data_validity_tab <- data.table(
+    crop = ifelse(
+      w_field_data$crop %in% field_data_dict$crop[[1]],
+      "valid",
+      "invalid"
+    )
+  ) %>% 
+  .[, raw_yield := ifelse(
+    w_field_data$raw_yield %in% field_data_dict$raw_yield[[1]],
+    "valid",
+    "invalid (NA not allowed)"
+  )] %>% 
+  #--- crop price ---#
+  .[, crop_price := ifelse(
+    is.numeric(w_field_data$crop_price),
+    "valid",
+    "entry must be numeric"
+  )] %>%
+  .[, crop_price := ifelse(
+    is.na(w_field_data$crop_price),
+    "missing",
+    crop_price
+  )] %>% 
+  #--- crop unit ---#
+  .[, crop_unit := ifelse(
+    w_field_data$crop_unit %in% field_data_dict$crop_unit[[1]],
+    "valid",
+    "unsupported unit used (NA not allowed)"
+  )] %>%
+  #--- raw yield ---#
+  .[, raw_yield := ifelse(
+    w_field_data$raw_yield %in% field_data_dict$raw_yield[[1]],
+    "valid",
+    "invalid (NA not allowed)"
+  )] %>%  
+  #--- harvester width ---#
+  .[, h_width := ifelse(
+    is.numeric(w_field_data$h_width),
+    "valid",
+    "entry must be numeric (NA not allowed)"
+  )] %>% 
+  #--- ec ---#
+  .[, ec := ifelse(
+    w_field_data$ec %in% field_data_dict$ec[[1]],
+    "valid",
+    "invalid (NA not allowed)"
+  )] %>% 
+  #--- soil sampling ---#
+  .[, soil_sampling := ifelse(
+    w_field_data$soil_sampling %in% field_data_dict$soil_sampling[[1]],
+    "valid",
+    "invalid (NA not allowed)"
+  )] 
+
+}
+
+lapply(field_year_ls, check_validity) %>% 
+  rbindlist() %>% 
+  flextable() %>%
+  color(
+    color = "blue"
+  ) %>% 
+  color(
+    i = ~ crop != "valid",
+    j = ~ crop,
+    color = "red"
+  )  %>% 
+  color(
+    i = ~ raw_yield != "valid",
+    j = ~ raw_yield,
+    color = "red"
+  ) %>% 
+  color(
+    i = ~ crop_price != "valid",
+    j = ~ crop_price,
+    color = "red"
+  ) %>% 
+  color(
+    i = ~ crop_unit != "valid",
+    j = ~ crop_unit,
+    color = "red"
+  ) %>% 
+  color(
+    i = ~ h_width != "valid",
+    j = ~ h_width,
+    color = "red"
+  ) %>% 
+  color(
+    i = ~ ec != "valid",
+    j = ~ ec,
+    color = "red"
+  ) %>% 
+  color(
+    i = ~ soil_sampling != "valid",
+    j = ~ soil_sampling,
+    color = "red"
+  ) %>% 
+  flextable::align(
+    align = "center",
+    part = "all"
+  )%>% 
+  fontsize(
+    size = 18,
+    part = "all"
+  ) %>%
+  autofit()
+
+```
+
+## Input parameter anomalies
+
+```{r error = TRUE}
+#--- input parameter dictionary ---#
+input_data_dict_v <- jsonlite::fromJSON(
+  file.path(
+    here("Data", "CommonData"),
+    "field_parameter_dictionary_inputs.json"
+  ),
+  flatten = TRUE
+) 
+
+lapply(field_year_ls, check_input_validity) %>% 
+  rbindlist()
+
+check_input_validity <- function(ffy){
+
+  input_data <- field_data[field_year == ffy, ] %>% 
+  # input_data <- field_data[18, ] %>% 
+    dplyr::select(starts_with("input."))
+
+  #--- ignore empty input data ---#
+  input_ls <- input_data %>% 
+    lapply(., function(x) is.data.frame(x[[1]])) %>% 
+    unlist() %>% 
+    names(input_data)[.]
+
+  input_validity <- list() 
+
+  # w_input <- "input.1"
+  for (w_input in input_ls){
+
+    w_input_data <- input_data[, w_input, with = FALSE][[1]][[1]]
+
+    if (w_input_data$form == "seed") {
+      temp_data <- data.table(
+        price = ifelse(
+          is.numeric(w_input_data$price),
+          "valid",
+          "invalid (NA not allowed)"
+        ),
+        data = ifelse(
+          w_input_data$data %in% input_data_dict_v$data[[1]],
+          "valid",
+          "invalid"
+        ),
+        sq_rate = ifelse(
+          is.numeric(w_input_data$sq_rate) | is.na(w_input_data$sq_rate),
+          "valid",
+          "invalid"
+        ),
+        Rx_exists = ifelse(
+          w_input_data$Rx_exists %in% input_data_dict_v$Rx_exists[[1]],
+          "valid",
+          "invalid"
+        ), 
+        machine_width = ifelse(
+          is.numeric(w_input_data$machine_width) | is.na(w_input_data$machine_width),
+          "valid",
+          "invalid"
+        ), 
+        machine_sections = ifelse(
+          is.numeric(w_input_data$machine_sections) | is.na(w_input_data$machine_sections),
+          "valid",
+          "invalid"
+        ),
+        use_target_rate_instead = ifelse(
+          is.logical(w_input_data$use_target_rate_instead) | is.na(w_input_data$use_target_rate_instead),
+          "valid",
+          "invalid"
+        ),
+        input = w_input
+      )  
+
+      if (w_input == "seed") {
+        temp_data[, unit := w_input_data$unit %in% (input_data_dict_v$unit[[1]] %>% .[str_detect(., "seed")])]
+      } else {
+        temp_data[, unit := w_input_data$unit %in% (input_data_dict_v$unit[[1]] %>% .[!str_detect(., "seed")])]
+      }
+    } else {
+      # if the input type is "N_base"
+      temp_data <- data.table(
+        price = is.numeric(w_input_data$price),
+        unit = w_input_data$unit %in% (input_data_dict_v$unit[[1]] %>% .[str_detect(., "seed")]),
+        rate = is.numeric(w_input_data$price),
+        input = w_input
+      )
+    }
+
+  input_validity[[w_input]] <- temp_data
+
+  }
+
+  return(rbindlist(input_validity, fill = TRUE))
+
+}
+
+
+
+```
+
+# Raw Data Availability
+
+## Raw Data Availability for Trial Design
+
+```{r }
+field_data <- jsonlite::fromJSON(
+  file.path(
+    here("Data", "CommonData"),
+    "field_parameter.json"
+  ),
+  flatten = TRUE
+) %>%
+data.table() %>%
+.[, field_year := paste(farm, field, year, sep = "_")] %>% 
+.[, farm_field := paste(farm, field, sep = "_")]
+
+check_availability <- function(ffy) {
+
+  raw_data_path <- here("Data", "Growers", ffy, "Raw")
+
+  w_field_data <- field_data[field_year == ffy, ]  
+
+  #/*----------------------------------*/
+  #' ## Create a table
+  #/*----------------------------------*/
+  return_table <- data.table(
+    boundary = ifelse(
+      file.exists(file.path(raw_data_path, "boundary.shp")),
+      "available", 
+      "not available"
+    ),
+    ab_line = ifelse(
+      file.exists(file.path(raw_data_path, "ab-line.shp")),
+      "available", 
+      "not available"
+    )
+  ) %>%
+  .[, field_year := ffy] %>%
+  .[, field := unique(w_field_data$farm_field)] %>%
+  .[, year := unique(w_field_data$year)] %>% 
+  .[, trial_design := "Not ready"] %>% 
+  .[ab_line == "available" & boundary == "available", trial_design := "Ready"] %>% 
+  .[, .(field, year, ab_line, boundary, trial_design)]
+
+  return(return_table)
+}
+
+field_year_ls <- field_data[year == 2021, ]$field_year
+
+lapply(field_year_ls, check_availability) %>%
+  rbindlist() %>% 
+  .[order(field, year),] %>% 
+  flextable() %>%
+  color(
+    j = c(3:5),
+    color = "blue"
+  ) %>% 
+  color(
+    i = ~ ab_line == "not available",
+    j = ~ ab_line,
+    color = "red"
+  ) %>% 
+  color(
+    i = ~ boundary == "not available",
+    j = ~ boundary,
+    color = "red"
+  ) %>% 
+  color(
+    i = ~ trial_design == "Not ready",
+    j = ~ trial_design,
+    color = "red"
+  ) %>%
+  flextable::align(
+    align = "center",
+    part = "all"
+  )%>% 
+  fontsize(
+    size = 18,
+    part = "all"
+  ) %>%
+  autofit  
+ 
+```
+
+## Raw Data Availability for Post-experiment Data Processing
+
+```{r error = TRUE}
+
+field_data <- jsonlite::fromJSON(
+  file.path(
+    here("Data", "CommonData"),
+    "field_parameter.json"
+  ),
+  flatten = TRUE
+) %>%
+data.table() %>%
+.[, field_year := paste(farm, field, year, sep = "_")] %>% 
+.[, farm_field := paste(farm, field, sep = "_")]
+
+check_availability_p <- function(ffy) {
+
+  # print(ffy)
+
+  raw_data_path <- here("Data", "Growers", ffy, "Raw")
+  analysis_data_path <- here("Data", "Growers", ffy, "Analysis-Ready")
+
+  #/*----------------------------------*/
+  #' ## Field data
+  #/*----------------------------------*/
+  w_field_data <- field_data[field_year == ffy, ]  
+
+  #--- get input data ---#
+  input_data <- dplyr::select(w_field_data, starts_with("input.")) %>% 
+    lapply(., function(x) x[[1]]) %>% 
+    rbindlist(fill = TRUE)
+  
+  #--- seed trial? ---#
+  is_trial_s <- "seed" %in% input_data[strategy == "trial", form]
+
+  if (is_trial_s) {
+    use_td_s <- input_data[form == "seed", use_target_rate_instead]
+    if (!is.logical(use_td_s)) {
+      use_td_s <- FALSE
+    }
+  } else {
+    use_td_s <- FALSE
+  }
+
+  #--- nitrogen trial? ---#
+  n_var_ls <- c("NH3", "urea", "uan32", "uan28")
+  process_n_idv <- n_var_ls %in% input_data[strategy == "trial", form]
+  is_trial_n <- any(process_n_idv)
+
+  if (is_trial_n) {
+    n_var <- n_var_ls[process_n_idv]
+    use_td_n <- input_data[form == n_var, use_target_rate_instead]
+    if (!is.logical(use_td_n)) {
+      use_td_n <- FALSE
+    }
+  } else {
+    use_td_n <- FALSE  
+  }
+
+  #--- K trial? ---#
+  is_trial_k <- "K" %in% input_data[strategy == "trial", form]
+
+  if (is_trial_k) {
+    use_td_k <- input_data[form == "K", use_target_rate_instead]
+  } else {
+    use_td_k <- FALSE
+  }
+
+  #/*----------------------------------*/
+  #' ## Create a table
+  #/*----------------------------------*/
+  return_table <- data.table(
+    raw_yield = ifelse(
+      file.exists(file.path(raw_data_path, "raw-yield.shp")),
+      "available", 
+      "not available"
+    ),
+    as_applied_s = ifelse(
+      file.exists(file.path(raw_data_path, "as-applied-s.shp")),
+      "available", 
+      "not available"
+    ),
+    as_applied_n = ifelse(
+      file.exists(file.path(raw_data_path, "as-applied-n.shp")),
+      "available", 
+      "not available"
+    ),
+    as_applied_k = ifelse(
+      file.exists(file.path(raw_data_path, "as-applied-k.shp")),
+      "available", 
+      "not available"
+    ),
+    ec = ifelse(
+      file.exists(file.path(raw_data_path, "ec.shp")),
+      "available", 
+      "not available"
+    ),
+    soil_sampling = ifelse(
+      file.exists(file.path(raw_data_path, "soil-sampling.shp")),
+      "available", 
+      "not available"
+    )
+  ) %>%
+  .[, field_year := ffy] %>%
+  .[, field := unique(w_field_data$farm_field)] %>%
+  .[, year := unique(w_field_data$year)] %>%
+  .[, trial_type := case_when(
+      is_trial_s & is_trial_n ~ "SN",
+      is_trial_s & !is_trial_n ~ "S",
+      is_trial_n & !is_trial_s ~ "N",
+      is_trial_k ~ "K"
+  )] %>% 
+  .[, e_processing := "Not ready"] %>%
+  .[trial_type == "SN" & (as_applied_s == "available" | use_td_s == TRUE) & (as_applied_n == "available" | use_td_n == TRUE), e_processing := "Ready to process"] %>%
+  .[trial_type == "S" & (as_applied_s == "available" | use_td_s == TRUE), e_processing := "Ready to process"] %>%
+  .[trial_type == "N" & (as_applied_n == "available" | use_td_n == TRUE), e_processing := "Ready to process"] %>%
+  .[trial_type == "K" & (as_applied_k == "available" | use_td_k == TRUE), e_processing := "Ready to process"] %>%
+  .[, as_applied_s := ifelse(is_trial_s, as_applied_s, "irrelevant")] %>% 
+  .[, as_applied_n := ifelse(is_trial_n, as_applied_n, "irrelevant")] %>% 
+  .[, as_applied_k := ifelse(is_trial_k, as_applied_k, "irrelevant")] %>% 
+  .[, as_applied_s := ifelse(!use_td_s, as_applied_s, "use trial design")] %>% 
+  .[, as_applied_n := ifelse(!use_td_n, as_applied_n, "use trial design")] %>% 
+  .[, as_applied_k := ifelse(!use_td_k, as_applied_k, "use trial design")] %>% 
+  relocate(field_year, field, year, trial_type) %>% 
+  .[, field_year := NULL] %>% 
+  .[order(year), ]
+
+  return(return_table)
+}
+
+field_year_ls <- field_data[year <= 2020, ]$field_year
+
+lapply(field_year_ls, check_availability_p) %>%
+  rbindlist() %>% 
+  .[order(year, field),] %>% 
+  flextable() %>%
+  color(
+    j = c(4:10),
+    color = "blue"
+  ) %>% 
+  color(
+    i = ~ as_applied_s == "not available",
+    j = ~ as_applied_s,
+    color = "red"
+  ) %>%
+  color(
+    i = ~ as_applied_s == "irrelevant",
+    j = ~ as_applied_s,
+    color = "gray"
+  ) %>%
+  color(
+    i = ~ as_applied_n == "not available",
+    j = ~ as_applied_n,
+    color = "red"
+  ) %>%
+  color(
+    i = ~ as_applied_n == "irrelevant",
+    j = ~ as_applied_n,
+    color = "gray"
+  ) %>%
+  color(
+    i = ~ as_applied_k == "not available",
+    j = ~ as_applied_k,
+    color = "red"
+  ) %>%
+  color(
+    i = ~ as_applied_k == "irrelevant",
+    j = ~ as_applied_k,
+    color = "gray"
+  ) %>%
+  color(
+    i = ~ raw_yield == "not available",
+    j = ~ raw_yield,
+    color = "red"
+  ) %>%
+  color(
+    i = ~ ec == "not available",
+    j = ~ ec,
+    color = "red"
+  ) %>%
+  color(
+    i = ~ soil_sampling == "not available",
+    j = ~ soil_sampling,
+    color = "red"
+  ) %>%
+  color(
+    i = ~ e_processing == "Not ready",
+    j = ~ e_processing,
+    color = "red"
+  ) %>%
+  flextable::align(
+    align = "center",
+    part = "all"
+  )%>% 
+  fontsize(
+    size = 18,
+    part = "all"
+  ) %>%
+  autofit  
+
+```
+
+# Non-experiment Intermediate Data Availability Status
+
+```{r }
+
+check_availability_ne <- function(ffy) {
+
+  w_field_data <- field_data[field_year == ffy, ]  
+
+  return_table <- data.table(
+    Topography = file.exists(
+      file.path(
+        here("Data", "Growers", ffy, "Intermediate"),
+        "topography.rds"
+      )
+    ),
+    SSURGO = file.exists(
+      file.path(
+        here("Data", "Growers", ffy, "Intermediate"),
+        "ssurgo.rds"
+      )
+    ),
+    Weather = file.exists(
+      file.path(
+        here("Data", "Growers", ffy, "Intermediate"),
+        "weather_daymet.rds"
+      )
+    ),
+    EC = file.exists(
+      file.path(
+        here("Data", "Growers", ffy, "Intermediate"),
+        "ec.rds"
+      )
+    )
+  ) %>%
+  .[, field := unique(w_field_data$farm_field)] %>%
+  .[, year := unique(w_field_data$year)] %>% 
+  relocate(field, year)
+
+  return(return_table)
+}
+
+lapply(field_year_ls, check_availability_ne) %>%
+  rbindlist() %>%
+  .[order(year, field),] %>% 
+  flextable() %>%
+  color(
+    j = c(3:6),
+    color = "blue"
+  ) %>% 
+  color(
+    i = ~ Topography == FALSE,
+    j = ~ Topography,
+    color = "red"
+  ) %>% 
+  color(
+    i = ~ SSURGO == FALSE,
+    j = ~ SSURGO,
+    color = "red"
+  ) %>% 
+  color(
+    i = ~ Weather == FALSE,
+    j = ~ Weather,
+    color = "red"
+  ) %>% 
+  color(
+    i = ~ EC == FALSE,
+    j = ~ EC,
+    color = "red"
+  ) %>% 
+  flextable::align(
+    align = "center",
+    part = "all"
+  ) %>%
+  fontsize(
+    size = 18,
+    part = "all"
+  ) %>%
+  autofit()
+
+```
+
+# Data availability for Analysis and Reporting
+
+```{r }
+check_availability_ar <- function(ffy) {
+
+  w_field_data <- field_data[field_year == ffy, ]  
+
+  return_table <- data.table(
+    analysis_data.rds = file.exists(
+      file.path(
+        here("Data", "Growers", ffy, "Analysis-Ready"),
+        "analysis_data.rds"
+      )
+    ),
+    analysis_results.rds = file.exists(
+      file.path(
+        here("Reports", "Growers", ffy),
+        "analysis_results.rds"
+      )
+    ),
+    `grower-report.html` = file.exists(
+      file.path(
+        here("Reports", "Growers", ffy),
+        "grower-report.html"
+      )
+    )
+  ) %>%
+  .[, field := unique(w_field_data$farm_field)] %>%
+  .[, year := unique(w_field_data$year)] %>% 
+  .[, run_analysis := "Not ready"] %>%
+  .[analysis_data.rds == TRUE, run_analysis := "Ready"] %>%
+  .[, make_report := "Not ready"] %>%
+  .[analysis_results.rds == TRUE, make_report := "Ready"] %>% 
+  .[, report_created := "No"] %>%
+  .[`grower-report.html` == TRUE, report_created := "Yes"] %>% 
+  .[, `grower-report.html` := NULL] %>% 
+  .[, analysis_data.rds := NULL] %>% 
+  .[, analysis_results.rds := NULL]  
+
+  return(return_table)
+}
+
+lapply(field_year_ls, check_availability_ar) %>%
+  rbindlist() %>%
+  .[order(year, field),] %>% 
+  relocate(field, year) %>% 
+  flextable() %>%
+  color(
+    j = c(3:5),
+    color = "blue"
+  ) %>% 
+  color(
+    i = ~ run_analysis == "Not ready",
+    j = ~ run_analysis,
+    color = "red"
+  ) %>% 
+  color(
+    i = ~ make_report == "Not ready",
+    j = ~ make_report,
+    color = "red"
+  ) %>% 
+  color(
+    i = ~ report_created == "Not ready",
+    j = ~ report_created,
+    color = "red"
+  ) %>%
+  flextable::align(
+    align = "center",
+    part = "all"
+  ) %>%
+  fontsize(
+    size = 18,
+    part = "all"
+  ) %>%
+  autofit()
+
+```
+

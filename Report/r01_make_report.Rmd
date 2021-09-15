@@ -1,0 +1,119 @@
+
+
+# Field Management Information
+
+<br>
+
++ Baseline _input_full_name_l_ rate: _base_rate_statement_here_.
+
++ _input_full_name_here_c_ target rates: `r paste0(tgti_ls, collapse = ", ")` (_unit_here_)
+
++ `r str_to_title("_planter-applicator-here_")` width: `r w_trial_info$machine_width` feet
+
++ Harvester width: `r harvester_width` feet
+
+# Summary  
+
+A _crop_type_here_ _input_full_name_l_ rate trial was conducted on the `r w_farm_field` field in crop year `r w_year`. The trial was implemented with a high level of accuracy. The best estimate provided by the data and model is that, under growing conditions identical to those of the field in `r w_year`, implementing the recommended site-specific _seeding-or-application_ rate strategy would have increased profits by approximately \$`r round(whole_profits_test[type_short == "ovg", point_est_dif], digits = 0)` per acre. The data and model placed a 95% level of statistical confidence that this profit gain would have been  between approximately \$`r round(whole_profits_test[type_short == "ovg", point_est_dif - point_est_dif_se * 1.96], digits = 0)` and \$`r round(whole_profits_test[type_short == "ovg", point_est_dif + point_est_dif_se * 1.96], digits = 0)` per acre.
+
+
+# Economic Results and Implications 
+
+<br>
+
++ assumed crop price: $`r format(results$crop_price, nsmall = 2)`/bu 
+
++ assumed _input_full_name_l_ price: $`r format(results$price, nsmall = 2)`/_unit_here_
+
+
+_results-and-discussions-here_
+
+# Trial Design and Implementation
+
+_trial_design_information_here_
+
+
+# Defining Management Zones Using a Statistical Parameter
+
+Management zones were identified using a statistical model that assumed that, on each field site $i$ in the field, yield response to _input_full_name_l_ rate took on the following form:
+
+$$
+Yield_i = \alpha_i + \beta_i ln(Seed) + v_i.
+$$
+
+The $\beta$ parameter is an estimate of the percentage change in yield give a 1% change in _input_full_name_l_ rate.  A higher $\beta_i$ estimate predicts a higher yield response to _input_full_name_l_ rate at site $i$, which implies a higher economically optimal _input_full_name_l_ rate at that site.  Using a statistical technique called geographically weighted regression (GWR), a value of the beta parameter was estimated at each observation of the field's processed data. The first panel of figure \@ref(fig:map-response) maps the values of $\beta$ throughout the field. The second panel of figure \@ref(fig:map-response) displays the resultant management zones.  
+
+```{r map-response, echo = F, fig.cap = "Map of the estimated values of the yield response parameter $\\beta$, and the derived management zones" , dependson = "gen-map-response", fig.height = ifelse(sn_ew_ratio > 1.1, 5, 8)}
+
+if (sn_ew_ratio > 1.1) {
+  tmap_arrange(tm_beta_input, tm_zone_input, ncol = 2)
+} else {
+  tmap_arrange(tm_beta_input, tm_zone_input, ncol = 1)
+}
+
+```
+
+```{r ys-by-mz, fig.cap = "(Seed rate, yield) data points for each management zones, and the estimated yield response curves derived from them", fig.height = 4}
+g_ys_zone
+
+```
+
+The values of $\beta$ in all of the field's observation points were partitioned into `r num_zones` "zones," with Zone 1 consisting of the observation points in the lowest fourth of estimated values of $\beta$, and Zones 2, 3, and 4, containing the observations points from second, third and fourth fourths. Figure \@ref(fig:ys-by-mz) shows the zones' (_input_full_name_l_ rate, yield) scatterplots and estimated yield response curves, which were produced using General Additive Model regression techniques. 
+
+# Exploring Interactions between _input_full_name_here_c_ Rate and Field Characteristics in the Yield Response Function
+
+The discussion thus far has offered statistical evidence of how yield responses and optimal management strategies differed among geographic areas of the field.  But no intuitive, agronomy-based explanations have been provided to explain the statistical results.  To investigate why some areas may have higher yield responses than others, it is necessary to examine whether field characteristics interact field characteristics with managed inputs in the yield response function.  Roughly speaking, if a field characteristic interacts with _input_full_name_l_ rate, it increases the slope of the yield response curve.  
+
+Figure \@ref(fig:interaction) illustrates that increasing the value of the field characteristic from $c^{low}$ to $c^{high}$ lowers the slope of the yield response curve.  The characteristic is said to interact negatively with _input_full_name_l_ rate in affecting yield response.  Note that interaction refers to the slope of the yield response curve, not its height.  Increasing the level of the field characteristic does shift the yield response curve up, but because it also makes the yield response curve flatter, which implies the negative interaction.
+
+```{r interaction, fig.cap = "Increasing the value of a field characteristics lowers the slope of the yield response curve. The characteristic is said to interact negatively with _input_full_name_l_ rate when affecting yield response", cache = F, fig.height = 3, fig.width = 5}
+
+g_int
+
+```
+
+```{r }
+field_var_txt <- data.table(field_vars = field_vars) %>% 
+  field_var_data[., on = "field_vars"] %>% 
+  .[.N, var_txt_in_report := paste0("and ", var_txt_in_report)] %>% 
+  .[, var_txt_in_report] %>% 
+  paste0(collapse = ", ")
+
+#=== interacting field vars ===#
+if (!is.null(field_plots)) {
+  int_var_txt <- data.table(field_vars = field_plots$ch_var) %>% 
+  field_var_data[., on = "field_vars"] %>% 
+  .[.N, var_txt_in_report := paste0("and ", var_txt_in_report)] %>% 
+  .[, var_txt_in_report] %>% 
+  paste0(collapse = ", ")
+} else {
+  int_var_txt <- "no variables"
+}
+
+```
+
+DIFM researchers are currently working on ways to efficiently identify interactions among field characteristics and management inputs. The research is in its early stages. However, in an exploratory analysis, `r field_var_txt` were tested to see if they are correlated with the management zones. Among these variables, `r int_var_txt` seem to affect how yield responds to _input_full_name_l_. 
+
+_field-interactions-here_
+
+# Appendix: Overview of Data Processing
+
+The variable-rate _planter-applicator-here_ and yield monitor provided raw _asa-or-asp_ and harvest data. An initial cleaning removed observations with extreme yield or _asa-or-asp_ rates ("outliers") from the raw data. Points were also removed from the headlands, where the data is less reliable due to differences in sun exposure, changes in driving speed, potential application overlaps, etc. The yield points were grouped into polygons using the distance between points, swath width, and the headings recorded in the raw yield data. Subplots were created by grouping contiguous yield polygons with similar _input_full_name_l_ rates into sets of four.  (Subplots were treated as the unit of observation in later analysis.) 
+
+A yield polygon was judged as having a "dominant treatment" when the standard deviation of the yield values at points within the polygon was below a threshold level. Adjacent _asa-or-asp_ polygons were judged as not being in the same group when the difference in application rates surpassed a threshold level.  Polygons without a dominant treatment were not included in the data set used for analysis. This technique also helped eliminate "transition zones, which are areas in which the data show where the harvester and _planter-applicator-here_ did not immediately adjust to new target rates or yield levels when passing from one plot into another. Each subplot's mean _asa-or-asp_ rate and yield were recorded as data. Finally, for each subplot the means of the electrical-conductivity data, SSURGO soil data, and USGS digital elevation data were recorded. In addition, the values topographical aspect, slope, curvature, topographical position index and topographical wetness index were calculated from the raw data, and each subplot's means of these values were included in the data used for analysis. Figure \@ref(fig:processed-yield-as-applied-combined) shows maps of the processed yield and _asa-or-asp_ data. 
+
+```{r machine-alignment, fig.cap = "Machinery alignment", eval = F}
+include_graphics(machinery_alignment.png))) 
+```
+
+```{r  processed-yield-as-applied-combined, echo = F, fig.cap = "Yield and _asa-or-asp_ _input_full_name_l_ rates after data processing", dependson = "save-figures-yield-seed-processed", fig.height = ifelse(sn_ew_ratio > 1.1, 5, 8)}
+
+if (sn_ew_ratio > 1.1) {
+  tmap_arrange(tm_p_input, tm_p_yield, ncol = 2)
+} else {
+  tmap_arrange(tm_p_input, tm_p_yield, ncol = 1)
+}
+
+```
+
+

@@ -1,0 +1,33 @@
+# Topography data
+
+```{r echo = F}
+topo_file <- file.path(here("Data", "Growers", ffy), "Intermediate/topography.rds")
+
+topo_file_exists <- file.exists(topo_file)
+```
+
+```{r echo = F}
+if (topo_file_exists)	{
+	print("Note: Topography data has been downloaded and processed already. Visualization of the data below.")
+} else {
+	print("Note: Topography data you are looking for is not available.")
+}
+```
+
+```{r topo-read, eval = topo_file_exists}
+topo <- readRDS("Intermediate/topography.rds")
+```
+
+## Visualization of the data
+
+```{r topo-viz, eval = topo_file_exists}
+lapply(names(topo), 
+  function(x) 
+  tm_shape(topo[x, ]) + 
+  tm_raster() +
+  tm_layout(
+    legend.title.size = 3
+  )
+)
+```
+

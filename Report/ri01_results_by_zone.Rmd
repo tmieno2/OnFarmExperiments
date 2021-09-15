@@ -1,0 +1,42 @@
+If the grower had not participated in the experiment, the chosen strategy would have been to apply _input_full_name_l_ according to _uniform_Rx_1_ displayed in the first panel of figure \@ref(fig:mix-figures).
+
+The second panel of figure \@ref(fig:mix-figures) shows the analysis's recommended site-specific _input_full_name_l_ rate map. The figure was calculated using data from each management zone separately. (Details about how management zones were determined are provided later in this report.)  A generalized additive model (GAM) regression was used to model yield as a function of _input_full_name_l_ rate in each zone, and then given that model estimation, the profit-maximizing _input_full_name_l_ rate was found for each zone. 
+
+<!-- Table \@ref(tab:yield-summary-table) lists for each zone the estimated per-acre yields that would have resulted, given the year's growing conditions, from applying the grower-chosen _seeding-or-application_ strategy and the estimated optimal _input_full_name_l_ rate derived from the data and model.  -->
+
+```{r mix-figures, fig.cap = "Estimated Optimal site-specific _input_full_name_l_ rate Rx", fig.height  = 4.5}
+
+tm_opt_gc
+
+```
+
+Figure \@ref(fig:profit-dif-map) shows the estimate of the gain in per-acre net revenues that would have resulted in each of the observation units from following the estimated economically optimal Rx rather than the _uniform_Rx_2_. (Net revenues equal revenues from _crop_type_here_ sales minus _input_full_name_l_ costs.)
+
+```{r profit-dif-map, fig.cap = "Map of the difference in profits between the optimal and Rx", fig.height = 4.5}
+tm_pi_dif_zones 
+```
+
+The model predicts that this strategy was approximately _gc-opt-comp-txt-comes-here_.
+
+
+For each of our management zones, Figure \@ref(fig:status-quo-optimal-v) compares the differences in per-acre net revenues that would have resulted from different management strategies. (Net revenues equal revenues from soybean sales minus _input_full_name_l_ costs.) For Zone 1, the best estimates of the gain in net revenues when switching from the grower's chosen rate of `r get_input(opt_gc_data, "opt_v", 1)` _input_full_name_l_ _unit_here_ per acre would have been $`r get_pi_dif(pi_dif_test_zone, 1)`. Of course, as with any statistical data analysis, there cannot be 100% certainty that the actual difference in net revenues from the two management plans would end up being exactly $`r get_pi_dif(pi_dif_test_zone, 1)`. The black brackets centered over Zone 1's red circle illustrates that a 95% level of statistical confidence that the different in net revenues would have been between `r get_pi_ci_zone(pi_dif_test_zone, 1)`
+
+A formal statistical test (called a t-test) _t-confidence-statement_1_ level of statistical confidence that net revenues would indeed be greater at the `r get_input(opt_gc_data, "opt_v", 1)` _unit_here_ per acre than at the grower-chosen rate of `r get_input(opt_gc_data, "gc", 1)` _unit_here_ per acre (t-value of `r get_t_value(pi_dif_test_zone, 1)`). _RX_notes_here_ 
+
+_rest-of-the-zones-here_
+
+
+```{r status-quo-optimal-v, fig.cap = "Confidence intervals of the difference in net revenues under grower-chosen vs. optimal site-specific _seeding-or-application_ strategies by zone", fig.height = 4}
+
+g_pi_dif_zone
+
+```
+
+Figure \@ref(fig:whole-field-profit-comp) shows confidence intervals of the gains in net revenues achieved by changing management strategies across the whole field.  The data and model's best estimate of that implementing the recommended site-specific _seeding-or-application_ strategy would result in a profit gain of approximately \$`r whole_profits_test[type_short == "ovg", round(point_est_dif, digits = 0)]` per acre.  The confidence interval shows that the evidence that the site-specific strategy is more profitable than the grower-chosen strategy is `r get_t_confidence_statement(whole_profits_test[type_short == "ovg", t])`. The data and model provide `r get_t_confidence_statement(whole_profits_test[type_short == "ovou", t])` evidence that the optimal variable rate strategy would result in greater profits than those from the optimal uniform rate strategy;  the point estimate of that profit difference is approximately \$`r whole_profits_test[type_short == "ovou", round(point_est_dif, digits = 0)]` per acre. The third confidence interval in the figure shows that the data and model `r get_t_confidence_statement(whole_profits_test[type_short == "oug", t])` evidence that the optimal uniform rate strategy of approximately `r round(unique(data_sf$opt_input_u), digits = 0)` _unit_here_ _input_full_name_l_ per acre would lead to higher profits than would the grower-chosen strategy.  The point estimate of that profit difference is approximately \$`r whole_profits_test[type_short == "oug", round(point_est_dif, digits = 0)]`. 
+
+```{r whole-field-profit-comp, fig.cap = "Confidence intervals of whole-field profit differences, by management strategy", fig.height = 3.5, fig.width = 6.5}
+g_whole_pi
+
+```
+
+

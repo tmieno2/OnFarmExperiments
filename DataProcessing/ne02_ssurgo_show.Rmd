@@ -1,0 +1,44 @@
+# SSURGO data
+
+**Note:** SSUGO data has been downloaded and processed already for this field. Visualization of the data below.
+
+```{r }
+ssurgo_boundary_sf <- readRDS("Intermediate/ssurgo.rds")
+```
+
+## Visualization
+
+### Clay
+
+```{r }
+ggplot(ssurgo_boundary_sf) +
+  geom_sf(aes(fill = clay)) +
+  scale_fill_viridis_c()
+```
+
+### Silt
+
+```{r }
+ggplot(ssurgo_boundary_sf) +
+  geom_sf(aes(fill = silt)) +
+  scale_fill_viridis_c()
+```
+
+### Sand
+
+```{r }
+ggplot(ssurgo_boundary_sf) +
+  geom_sf(aes(fill = sand)) +
+  scale_fill_viridis_c() 
+```
+
+### Water storage
+
+```{r }
+ggplot(ssurgo_boundary_sf) +
+  geom_sf(aes(fill = water_storage)) +
+  scale_fill_viridis_c() 
+```
+
+
+

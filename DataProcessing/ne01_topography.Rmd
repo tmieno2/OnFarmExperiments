@@ -1,0 +1,134 @@
+# Topography data
+
+## Preparation
+
+```{r additional-packages}
+library(sf)
+library(sp)
+library(raster)
+library(stars)
+library(elevatr)
+library(spatialEco)
+library(dynatopmodel)
+library(terra)
+library(tmap)
+```
+
+## Download elevation data for the area of interest
+
+```{r }
+#--- read the boundary file ---#
+boundary_file <- here("Data", "Growers", ffy, "Raw/boundary.shp") 
+
+td_file <- here("Data", "Growers", ffy, "TrialDesign") %>% 
+  list.files(full.names = TRUE) %>% 
+  .[str_detect(., "shp")] %>% 
+  .[str_detect(., "trial-design")] %>% 
+  #=== get the first one in case we have two separate files ===#
+  .[1]
+
+if (file.exists(boundary_file)) {
+  boundary_sf <- st_read(boundary_file) %>%
+  st_set_4326() %>%
+  st_transform_utm() %>%
+  st_bbox() %>%
+  st_as_sfc() %>%
+  st_as_sf()
+} else if (file.exists(td_file)) {
+  boundary_sf <- st_read(td_file) %>%
+  st_set_4326() %>%
+  st_transform_utm() %>%
+  st_bbox() %>%
+  st_as_sfc() %>%
+  st_as_sf()
+}
+
+boundary_sp <- as(boundary_sf, "Spatial")
+
+dem <- get_elev_raster(
+  boundary_sp,
+  clip = "locations",
+  z = 14
+)
+
+```
+
+```{r }
+tm_shape(dem) +
+  tm_raster()
+```
+
+## Calculate topographic variables
+
+### Slope and Aspect
+Use the `terrain()` function from raster to get slope and aspect:
+
+```{r }
+dem_sa <- terrain(dem, opt = c("slope", "aspect"))
+names(dem_sa) <- c("slope", "aspect")
+```
+
+### Curvature
+
+Use the `curvature()` function from spatialEco to get curvature:
+
+```{r }
+curv <- curvature(dem, s = 5)
+names(curv) <- "curv"
+```
+
+### TPI
+
+Use the `tpi()` function from the `spatialEco` to get terrain position index:
+
+```{r }
+tpi <- tpi(dem, s = 5)
+names(tpi) <- "tpi"
+```
+
+### TWI
+
+Use the `upslope.area()` function from the `dynatopmodel` to get terrain wetness index:
+
+```{r }
+contrib_area <- upslope.area(dem, atb = TRUE)
+twi <- contrib_area$atb
+names(twi) <- c("twi")
+```
+
+## Organize the datasets and save
+
+```{r }
+#--- Stack all the rasters together ---#
+topo <- stack(dem, dem_sa, curv, twi, tpi) %>%
+  st_as_stars() %>%
+  split(3)
+
+#--- save the data ---#
+saveRDS(topo, here("Data", "Growers", ffy, "Intermediate/topography.rds"))
+```
+
+## Remove the original DEM files
+
+```{r eval = F}
+list.files("Raw", full.names = TRUE) %>%
+  .[str_detect(., "USGS")] %>%
+  unlink()
+```
+
+## Visualization of the data
+
+```{r }
+lapply(
+  names(topo),
+  function(x) {
+    tm_shape(topo[x, ]) +
+      tm_raster() +
+      tm_layout(
+        legend.title.size = 3
+      )
+  }
+)
+```
+
+
