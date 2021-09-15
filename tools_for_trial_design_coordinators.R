@@ -9,7 +9,7 @@
 #' ## Load packages and source functions
 #/*----------------------------------*/
 source(
-  "https://github.com/tmieno2/DIFM/blob/master/Functions/prepare.R?raw=TRUE",
+  "https://github.com/tmieno2/OnFarmExperiments/blob/master/Functions/prepare.R?raw=TRUE",
   local = TRUE
 )
 
@@ -17,7 +17,7 @@ source(
 #' ## Load the field parameter data
 # /*----------------------------------*/
 field_data <- jsonlite::fromJSON(
-  here("Data", "CommonData", "fp_2021_TD.json"),
+  here("Data", "CommonData", "metadata.json"),
   flatten = TRUE
 ) %>%
 data.table() %>%
