@@ -108,34 +108,40 @@ exp_process_make_report <- function(ffy, rerun = FALSE, locally_run = FALSE) {
     "\n============================================")
   )
   #--- define field parameters ---#
-  source(
-    get_r_file_name("Functions/unpack_field_parameters.R"), 
-    local = TRUE
-  )
+  trial_pars <- get_trial_parameter(ffy)
+  trial_info <- trial_pars$input_data_trial
  
-  exp_temp_rmd <- read_rmd(
-    "DataProcessing/data_processing_template.Rmd", 
-    locally_run = locally_run
-  )
+  exp_temp_rmd <- 
+    read_rmd(
+      "DataProcessing/data_processing_template.Rmd", 
+      locally_run = locally_run
+    )
 
-  e01 <- read_rmd(
-    "DataProcessing/e01_gen_yield_polygons.Rmd", 
-    locally_run = locally_run
-  )
+  e01 <- 
+    read_rmd(
+      "DataProcessing/e01_gen_yield_polygons.Rmd", 
+      locally_run = locally_run
+    )
 
   exp_rmd_y <- c(exp_temp_rmd, e01)
 
   #/*----------------------------------*/
   #' ## Rmd(s) for input processing
   #/*----------------------------------*/
-  e02 <- trial_info %>% 
+  e02 <- 
+    trial_info %>% 
     rowwise() %>% 
     mutate(
       e02_rmd = list(
         prepare_e02_rmd(
-          input_type, 
-          process, 
-          use_td
+          input_type = input_type, 
+          use_td = use_target_rate_instead,
+          data_file = data,
+          input_form = form, 
+          reporting_unit = reporting_unit,
+          input_unit = unit,
+          machine_width = machine_width,
+          locally_run = TRUE
         )
       )
     ) %>% 
@@ -747,7 +753,7 @@ read_rmd <- function(file_name, locally_run = FALSE) {
     rmd_file <- readLines(here("Codes", file_name))
   } else {
     #=== if in anybody's DIFM_HQ  ===#
-    rmd_file <- readLines(here("Codes_team", file_name))
+    rmd_file <- readLines(here("Codes", file_name))
   }
 
   return(rmd_file)
@@ -943,35 +949,37 @@ get_td_text <- function(input_type, gc_type, locally_run = FALSE) {
 
 }
 
-prepare_e02_rmd <- function(input_type, process, use_td, locally_run = FALSE){
+prepare_e02_rmd <- function(input_type, use_td, data_file, input_form, reporting_unit, input_unit, locally_run = FALSE){
 
-  if (process & !use_td) {
+  if (!use_td) {
 
-    return_rmd <- read_rmd(
-      "DataProcessing/e02_process_as_applied_base.Rmd", 
-      locally_run = locally_run
-    ) %>% 
-    gsub("input_type_here", input_type, .) %>% 
-    gsub(
-      "as-applied-file-name-here", 
-      paste0("as-applied-", tolower(input_type)), 
-      .
-    )
-
-  } else if (process & use_td){
-
-    return_rmd <- read_rmd(
-      "DataProcessing/e02_use_td.Rmd", 
-      locally_run = locally_run
-    ) %>% 
-    gsub("input_type_here", input_type, .)
-
+    return_rmd <- 
+      read_rmd(
+        "DataProcessing/e02_process_as_applied_base.Rmd", 
+        locally_run = locally_run
+      ) %>% 
+      gsub("input_type_here", input_type, .) %>% 
+      gsub(
+        "as-applied-file-name-here", 
+        paste0("as-applied-", tolower(input_type)), 
+        .
+      ) %>% 
+      gsub("data_file_name_here", paste0(data_file, ".shp"), .) %>% 
+      gsub("input_form_here", input_form, .) %>% 
+      gsub("reporting_unit_here", reporting_unit, .) %>% 
+      gsub("input_unit_here", input_unit, .) %>% 
+      gsub("machine_width_here", machine_width, .)
 
   } else {
 
-    return_rmd <- NULL
+    return_rmd <- 
+      read_rmd(
+        "DataProcessing/e02_use_td.Rmd", 
+        locally_run = locally_run
+      ) %>% 
+      gsub("input_type_here", input_type, .)
 
-  }
+  } 
 
   return(return_rmd)
 }
@@ -979,5 +987,110 @@ prepare_e02_rmd <- function(input_type, process, use_td, locally_run = FALSE){
 get_input <- function(opt_gc_data, c_type, w_zone){
   opt_gc_data[type == c_type & zone_txt == paste0("Zone ", w_zone), input_rate] %>% round(digits = 0)
 }
+
+
+get_trial_parameter <- function(ffy) {
+  #/*=================================================*/
+  #' # Extract input information from field data
+  #/*=================================================*/
+  #--- field data ---#
+  field_data <- jsonlite::fromJSON(
+    file.path(
+      here("Data", "CommonData"),
+      "metadata.json"
+    ),
+    flatten = TRUE
+  ) %>%
+  data.table() %>%
+  .[, farm_field := paste(farm, field, sep = "_")] %>% 
+  .[, field_year := paste(farm_field, year, sep = "_")] 
+
+  #--- get field parameters for the field-year ---#
+  w_field_data <- field_data[field_year == ffy, ]
+
+  w_farm_field <- w_field_data$farm_field
+  w_year <- w_field_data$year
+
+  #--- get input data ---#
+  input_data <- 
+    dplyr::select(
+      w_field_data, 
+      starts_with("input")
+    ) %>%  
+    map(1) %>% 
+    rbindlist(fill = TRUE)
+
+  #/*----------------------------------*/
+  #' ## Crop information
+  #/*----------------------------------*/
+  crop <- w_field_data[, crop] 
+  crop_unit <- w_field_data[, crop_unit] 
+  # crop_price <- as.numeric(w_field_data[, crop_price]) 
+  # if(is.na(crop_price) == TRUE) {
+  #   print("Crop price is either missing in the metadata or the value provided is not valid. Using the default value.")
+  #   crop_price <- case_when(
+  #     crop == "soy" ~ 14, # $/bu
+  #     crop == "corn" ~ 5.5, # $/bu
+  #     crop == "cotton" ~ 0.93 * 480, # $/bales
+  #   )
+  # }
+
+  land_unit <- w_field_data[, land_unit] 
+  reporting_unit <- w_field_data[, reporting_unit] 
+  harvester_width <- w_field_data[, h_width][[1]]
+
+  #/*=================================================*/
+  #' # Input information
+  #/*=================================================*/
+  n_var_ls <- c(
+    "NH3", "UREA46", "UAN32", "UAN28", "1_2_1(36)", "LAN(26)", "MAP", 
+    "1_0_0", "1_0_1", "2_3_2(22)", "15_10_6", "3_0_1", "2_3_4(32)", 
+    "4_3_4(33)", "5_1_5", "Sp"
+  )
+
+  input_data_trial <- 
+    input_data[
+      strategy == "trial", 
+      .(form, use_target_rate_instead, machine_width, unit, data)
+    ] %>% 
+    .[, input_type := NA] %>% 
+    .[, input_type := ifelse(form == "seed", "S", input_type)] %>% 
+    .[, input_type := ifelse(form %in% n_var_ls, "N", input_type)] %>% 
+    .[, reporting_unit := field_data$reporting_unit]
+
+  #/*~~~~~~~~~~~~~~~~~~~~~~*/
+  #' ### Base nitrogen 
+  #/*~~~~~~~~~~~~~~~~~~~~~~*/
+  is_base_N <- "base" %in% input_data[, strategy]
+
+  if (is_base_N) {
+
+    n_base_rate <- 
+      input_data[strategy == "base", ] %>% 
+      rowwise() %>% 
+      mutate(
+        n_equiv_rate = convert_N_unit(
+          form = form, 
+          unit = unit, 
+          rate = rate, 
+          reporting_unit = reporting_unit
+        ) 
+      ) %>% 
+      data.table() %>% 
+      .[, sum(n_equiv_rate)]
+
+  } else {
+
+    n_base_rate <- 0  
+
+  }
+
+  return(list(
+    n_base_rate = n_base_rate,
+    input_data_trial = input_data_trial
+  ))
+}
+
+
 
 

@@ -8,20 +8,19 @@ source(
 )
 
 #--- field parameter data ---#
-field_data <- jsonlite::fromJSON(
-  file.path(
-    here("Data", "CommonData"),
-    "field_parameter.json"
-  ),
-  flatten = TRUE
-) %>%
+field_data <- 
+  jsonlite::fromJSON(
+    file.path(
+      here("Data", "CommonData"),
+      "metadata.json"
+    ),
+    flatten = TRUE
+  ) %>%
   data.table() %>%
   .[, field_year := paste(farm, field, year, sep = "_")]
 
 #--- get the field-year combinations ---#
 # field_year_ls <- field_data[year == 2020, ]$field_year
-field_year_ls <- field_data[year == 2020, ]$field_year
-
 field_year_ls <- field_data$field_year
 
 # /*=================================================*/
@@ -48,7 +47,7 @@ make_data_report()
 
 #--- individually ---#
 exp_process_make_report(
-  ffy = field_year_ls[39],
+  ffy = field_year_ls[1],
   rerun = TRUE,
   locally_run = TRUE
 )

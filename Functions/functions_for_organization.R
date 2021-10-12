@@ -204,7 +204,7 @@ gen_fp_template <- function(farm, field, year, crop, input_ls, strategy_ls, json
 # This function add new field parameter templates WITHOUT input data
 # for a specified field
 
-initiate_fp_entry <- function(farm, field, year, json_file = NULL) {
+initiate_fp_entry <- function(farm, field, year, crop, json_file = NULL) {
   
   temp_data <- data.table(
     trial_supervisor = "supervisor name",
@@ -212,7 +212,7 @@ initiate_fp_entry <- function(farm, field, year, json_file = NULL) {
     farm = farm,
     field = field,
     year = year,
-    crop = "corn, soy, wheat, or cotton",
+    crop = crop,
     crop_price = "numeric (no double quotes needed)",
     crop_unit = "bu or kg",
     raw_yield = "not received, lost, received",
@@ -265,7 +265,7 @@ initiate_fp_entry <- function(farm, field, year, json_file = NULL) {
 # an existing field parameter file
 
 
-add_inputs <- function(json_file, farm, field, year, input_ls, strategy_ls) {
+add_inputs <- function(json_file, farm, field, year, input_ls, product_ls, strategy_ls) {
 
   ffy <- paste(farm, field, year, sep = "_")
 
@@ -322,6 +322,7 @@ add_inputs <- function(json_file, farm, field, year, input_ls, strategy_ls) {
         #--- if not seed ---#
         temp_input_data <- data.table(
           form = input_ls[i],
+          product = product_ls[i],
           strategy = "trial",
           unit = "gallons, lbs, Mg, kg, bales",
           price = "numeric (no double quotes needed)",
@@ -340,6 +341,7 @@ add_inputs <- function(json_file, farm, field, year, input_ls, strategy_ls) {
       #--- if base ---#
       temp_input_data <- data.table(
         form = input_ls[i],
+        product = product_ls[i],
         strategy = "base",
         data = "Rx file name or as-applied file name",
         unit = "gallons, lbs, Mg, kg, bales",

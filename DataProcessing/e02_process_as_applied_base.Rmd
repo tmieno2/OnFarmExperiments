@@ -7,14 +7,16 @@
 ```{r Reading-as-applied-n-data}
 
 input_type <- "input_type_here"
+input_form <- "input_form_here"
+input_unit <- "input_unit_here"
+reporting_unit <- "reporting_unit_here"
+machine_width <- "machine_width_here"
 
-aa_input <- here("Data/Growers", ffy, "Raw") %>% 
-  list.files(recursive = TRUE, full.names = TRUE) %>%
-  #--- search for as-applied-s file ---#
-  .[str_detect(., "shp")] %>%
-  .[!str_detect(., "xml")] %>%
-  .[str_detect(., "as-applied-file-name-here")] %>% 
-  # .[str_detect(., "as-applied-s")] %>% 
+aa_input <- 
+  here(
+    "Data/Growers", ffy, "Raw",
+    "data_file_name_here"
+  ) %>% 
   #--- read the data ---#
   st_read() %>% 
   st_set_4326() %>% 
@@ -72,11 +74,15 @@ aa_input <- make_var_name_consistent(
   dict_aa_input
 )
 
-aa_input <- dplyr::select(aa_input, matches(c(col_list, "sectionid", "id")))
+aa_input <- 
+  dplyr::select(
+    aa_input, 
+    matches(c(col_list, "id"))
+  )
 
 ```
 
-### Check units 
+### Check units
 
 This code assumes that if `distance` is in meter, then other variables (e.g., `width`) are also measured in meter.
 
@@ -115,20 +121,22 @@ aa_input <- aa_input
 }
 ```
 
-### Convert input rate unit 
+### Convert input rate unit
 
 If `N`, then base N rate is added as well.
 
 ```{r }
 if (input_type == "N") {
-  aa_input <- mutate(aa_input, 
-    input_rate = convert_N_unit(
-      input_data_n$form, 
-      input_data_n$unit, 
-      input_rate, 
-      field_data$reporting_unit
-    ) + n_base_rate # add base N rate
-  )
+  aa_input <- 
+    mutate(
+      aa_input, 
+      input_rate = convert_N_unit(
+        form = input_form, 
+        unit = input_unit, 
+        rate = input_rate, 
+        reporting_unit = reporting_unit
+      )
+    )
 } else if (input_type == "S") {
   #--- seed rate conversion ---#
   if (any(aa_input$input_rate > 10000)){
@@ -169,11 +177,8 @@ if (sectionid_var_available) { # if non-na section id variable is in the dataset
 
   #=== find the number of the dominant number of the same rates ===#
   # Note: for non-section-controlled machines the dominant number should be 1
-  dominant_rate_cluster_num <- data.table(aa_input)[
-    , 
-    .(num_same_rate = .N ), 
-    by = input_rate
-    ] %>% 
+  dominant_rate_cluster_num <- 
+    data.table(aa_input)[, .(num_same_rate = .N ), by = input_rate] %>% 
     .[, .(num_num = .N), by = num_same_rate] %>% 
     .[num_num == max(num_num), num_same_rate]
 
@@ -185,10 +190,7 @@ if (sectionid_var_available) { # if non-na section id variable is in the dataset
     
   estimated_width <- dominant_rate_cluster_num * get_med_dist(aa_input)
 
-  actual_machine_width <- filter(trial_info, input_type == "N") %>% 
-    pull(machine_width) %>% 
-    #=== this needs to change ===#
-    conv_unit("ft", "m")
+  actual_machine_width <- conv_unit(machine_width, "ft", "m")
 
   if (
     dominant_rate_cluster_num > 1 & 
@@ -209,7 +211,7 @@ if (sectionid_var_available) { # if non-na section id variable is in the dataset
 
 ```
 
-### Group points by changes in angle 
+### Group points by changes in angle
 
 ```{r }
 
@@ -234,11 +236,14 @@ if (recover_section_id) { # if section id is missing even though the data is obs
 
   } else {
     #--- if only one observation at a time ---#
-    aa_input_grouped <- group_points_sc(aa_input, by_var = NA, angle_threshold = 30) %>% 
+    aa_input_grouped <- 
+      group_points_sc(
+        aa_input, 
+        by_var = NA, 
+        angle_threshold = 30
+      ) %>% 
       #--- remove observations with no group assigned ---#
-      mutate(
-        new_group = group
-      )
+      mutate(new_group = group)
 
     #--- medium distance between aa_input points ---#
     med_distance_v <- get_med_dist(aa_input_grouped)
@@ -259,7 +264,7 @@ tm_shape(filter(aa_input_grouped, change_group == TRUE)) +
 tm_layout_to_add 
 ```
 
-## Flag bad yield data points 
+## Flag bad yield data points
 
 ```{r }
 sd_factor <- 4
@@ -271,7 +276,7 @@ aa_input_grouped <- flag_bad_points(
 )  
 ```
 
-Yield distribution after cleaning:
+Input distribution after cleaning:
 
 ```{r }
 aa_input_grouped %>% filter(flag_bad == 0) %>% 
@@ -341,8 +346,7 @@ if (section_num != 1) {
 } 
 ```
 
-## Vertically reduce points if dense (parallel to the direction the planter is moving) 
-
+## Vertically reduce points if dense (parallel to the direction the planter is moving)
 
 
 ```{r }
@@ -353,11 +357,14 @@ if (is_dense) {
   num_obs_rg <- ceiling(2 / (med_distance_v))
 
   aa_input_reduced_v <- reduce_points_v(aa_input_grouped, num_obs_rg, "input_rate", "new_group") %>% 
+    #=== remove observations that has only observation per new_group ===#
     .[, .SD[.N != 1, ], by = new_group]
 
 } else {
 
-  aa_input_reduced_v <- data.table(aa_input_grouped) %>% 
+  aa_input_reduced_v <- 
+    data.table(aa_input_grouped) %>% 
+    #=== remove observations that has only observation per new_group ===#
     .[, .SD[.N != 1, ], by = new_group]
 
 }
@@ -371,19 +378,21 @@ if (is_dense) {
 plan(multiprocess, workers = detectCores() - 2)
 
 #--- create polygons ---#
-all_polygons <- future_lapply(
-  #--- list of groups to loop over ---#
-  aa_input_reduced_v$new_group %>% unique(), 
-  #--- make polygons by group ---#
-  function(x) make_polygons(
-    filter(aa_input_reduced_v, new_group == x)
-  )
-) %>% 
-do.call("c", .) %>% 
-st_as_sfc() 
+all_polygons <- 
+  future_lapply(
+    #--- list of groups to loop over ---#
+    aa_input_reduced_v$new_group %>% unique(), 
+    #--- make polygons by group ---#
+    function(x) make_polygons(
+      filter(aa_input_reduced_v, new_group == x)
+    )
+  ) %>% 
+  do.call("c", .) %>% 
+  st_as_sfc() 
 
 #--- combine with the data ---#
-aa_input_sf <- aa_input_reduced_v %>% 
+aa_input_sf <- 
+  aa_input_reduced_v %>% 
   mutate(geometry = all_polygons) %>% 
   st_as_sf() %>% 
   st_set_crs(st_crs(aa_input)) %>% 

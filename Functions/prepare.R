@@ -18,11 +18,11 @@ library(tidyverse)
 cat("Sourcing functions from github repositories.\n\n")
 
 source("https://raw.githubusercontent.com/brittanikedge/DIFM/main/Functions.R")
-source("https://github.com/tmieno2/DIFM/blob/master/Functions/functions_for_analysis.R?raw=TRUE")
-source("https://github.com/tmieno2/DIFM/blob/master/Functions/functions_for_execution.R?raw=TRUE")
-source("https://github.com/tmieno2/DIFM/blob/master/Functions/functions_for_organization.R?raw=TRUE")
-source("https://github.com/tmieno2/DIFM/blob/master/Functions/functions_for_processing.R?raw=TRUE")
-source("https://github.com/tmieno2/DIFM/blob/master/Functions/functions_for_trial_design.R?raw=TRUE")
+source("https://github.com/tmieno2/OnFarmExperiments/blob/master/Functions/functions_for_analysis.R?raw=TRUE")
+source("https://github.com/tmieno2/OnFarmExperiments/blob/master/Functions/functions_for_execution.R?raw=TRUE")
+source("https://github.com/tmieno2/OnFarmExperiments/blob/master/Functions/functions_for_organization.R?raw=TRUE")
+source("https://github.com/tmieno2/OnFarmExperiments/blob/master/Functions/functions_for_processing.R?raw=TRUE")
+source("https://github.com/tmieno2/OnFarmExperiments/blob/master/Functions/functions_for_trial_design.R?raw=TRUE")
 
 #/*=================================================*/
 #' # Figure theme
