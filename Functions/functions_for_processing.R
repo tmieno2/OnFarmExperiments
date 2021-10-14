@@ -1242,15 +1242,17 @@ st_set_4326 <- function(data_sf) {
 #   geom_sf(data = yield_polygons[5000, ], fill = "red", alpha = 0.3)
 
 intersect_yield_input <- function(yield_polygons, input_polygons) {
-  pct_int <- st_intersection(
-    # dplyr::select(yield_polygons[50, ], yield_id, yield_area),
-    dplyr::select(yield_polygons, yield_id, yield_area),
-    dplyr::select(input_polygons, input_rate)
-  ) %>%
+  pct_int <- 
+    st_intersection(
+      # dplyr::select(yield_polygons[50, ], yield_id, yield_area),
+      dplyr::select(yield_polygons, yield_id, yield_area),
+      dplyr::select(input_polygons, input_rate)
+    ) %>%
     #--- percentage overlapped ---#
     mutate(
       sub_pct = as.numeric(st_area(.)) / yield_area
-    ) %>%
+    ) 
+    %>%
     data.table() %>%
     #--- total sub_pct by yield polygon ---#
     .[, tot_sub_pct := sum(sub_pct), by = yield_id] %>%
@@ -1277,21 +1279,22 @@ intersect_yield_input <- function(yield_polygons, input_polygons) {
 # /*=================================================*/
 crop <- c("corn", "soy", "wheat", "cotton")
 input_type <- c("S", "N", "K")
-max_dev_table <- expand.grid(crop = crop, input_type = input_type) %>%
-  data.table() %>%
+
+max_dev_table <- 
+  CJ(crop = crop, input_type = input_type) %>%
   .[, max_dev_allowed := c(
-    2, # corn-seed
-    10, # soy-seed
-    NA, # wheat-seed
-    NA, # cotton-seed
-    20, # corn-nitrogen
-    NA, # soy-nitrogen
-    NA, # wheat-nitrogen
-    NA, # cotton-nitrogen
-    NA, # corn-K
-    NA, # soy-K
+    2, # corn-K
+    10, # corn-N
+    10, # corn-S
+    NA, # cotton-K
+    20, # cotton-N
+    NA, # cotton-S
+    10, # soy-K
+    NA, # soy-N
+    NA, # soy-S
     NA, # wheat-K
-    2 # cotton-K
+    10, # wheat-N
+    2 # wheat-S
   )]
 
 # /*=================================================*/

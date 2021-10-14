@@ -10,7 +10,7 @@ input_type <- "input_type_here"
 input_form <- "input_form_here"
 input_unit <- "input_unit_here"
 reporting_unit <- "reporting_unit_here"
-machine_width <- "machine_width_here"
+machine_width <- as.numeric("machine_width_here")
 
 aa_input <- 
   here(
@@ -155,7 +155,9 @@ Definitions:
 
 ```{r }
 recover_section_id <- FALSE # this gets updated if the use of points data is necessary
-sectionid_var_available <- ("sectionid" %in% names(aa_input))
+sectionid_var_available <- !all(is.na(aa_input$sectionid))
+
+
 
 if (sectionid_var_available) { # if non-na section id variable is in the dataset
   #--- medium distance between aa_input points ---#
@@ -348,6 +350,7 @@ if (section_num != 1) {
 
 ## Vertically reduce points if dense (parallel to the direction the planter is moving)
 
+When the points are too close to each other, creating polygons can fail because polygon creation depends on the angle from one point to the next.   
 
 ```{r }
 is_dense <- (med_distance_v * 2) < med_distance_yp
@@ -361,7 +364,7 @@ if (is_dense) {
     .[, .SD[.N != 1, ], by = new_group]
 
 } else {
-
+  #=== Do not reduce ===#
   aa_input_reduced_v <- 
     data.table(aa_input_grouped) %>% 
     #=== remove observations that has only observation per new_group ===#
@@ -434,7 +437,7 @@ tm_layout_to_add
 ```{r }
 here(
   "Data/Growers", ffy, "Intermediate",
-  tolower("as_applied_input_type_here.rds")
+  paste0("aa-", input_type, "-", input_form, ".rds")
 ) %>% 
 saveRDS(aa_input_sf, .)
 ```

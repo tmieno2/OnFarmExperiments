@@ -92,10 +92,7 @@ dictionary <- fromJSON(
 data.table()
 
 #--- define field parameters ---#
-source(
-  get_r_file_name("Functions/unpack_field_parameters.R"), 
-  local = TRUE
-)
+trial_info <- get_trial_parameter(ffy)
 
 #---  ---#
 plan(multiprocess, workers = detectCores() - 2)

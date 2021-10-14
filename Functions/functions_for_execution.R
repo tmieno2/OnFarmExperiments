@@ -109,8 +109,9 @@ exp_process_make_report <- function(ffy, rerun = FALSE, locally_run = FALSE) {
   )
   #--- define field parameters ---#
   trial_pars <- get_trial_parameter(ffy)
+  yield_file <- trial_pars$yield_data
   trial_info <- trial_pars$input_data_trial
- 
+
   exp_temp_rmd <- 
     read_rmd(
       "DataProcessing/data_processing_template.Rmd", 
@@ -121,13 +122,15 @@ exp_process_make_report <- function(ffy, rerun = FALSE, locally_run = FALSE) {
     read_rmd(
       "DataProcessing/e01_gen_yield_polygons.Rmd", 
       locally_run = locally_run
-    )
+    ) %>% 
+    gsub("yield-file-name-here", yield_file, .) 
 
   exp_rmd_y <- c(exp_temp_rmd, e01)
 
   #/*----------------------------------*/
   #' ## Rmd(s) for input processing
   #/*----------------------------------*/
+
   e02 <- 
     trial_info %>% 
     rowwise() %>% 
@@ -162,10 +165,10 @@ exp_process_make_report <- function(ffy, rerun = FALSE, locally_run = FALSE) {
   #/*----------------------------------*/
   #' ## Personalize the report 
   #/*----------------------------------*/
-  exp_rmd_yiy <- c(exp_rmd_yi, e03) %>% 
+  exp_rmd_yiy <- 
+    c(exp_rmd_yi, e03) %>% 
     gsub("field-year-here", ffy, .) %>% 
-    gsub("title-here", "Experiment Data Processing Report", .) %>% 
-    gsub("trial-type-here", trial_type, .)
+    gsub("title-here", "Experiment Data Processing Report", .)
 
   #/*=================================================*/
   #' # Remove cached files if rerun == TRUE
@@ -184,17 +187,19 @@ exp_process_make_report <- function(ffy, rerun = FALSE, locally_run = FALSE) {
   #/*=================================================*/
   #' # Write out the rmd and render
   #/*=================================================*/
-  exp_report_rmd_file_name <- here(
-    "Data/Growers", 
-    ffy, 
-    "DataProcessingReport/dp_report_exp.Rmd"
-  )
+  exp_report_rmd_file_name <- 
+    here(
+      "Data/Growers", 
+      ffy, 
+      "DataProcessingReport/dp_report_exp.Rmd"
+    )
 
-  exp_report_r_file_name <- here(
-    "Data/Growers", 
-    ffy, 
-    "DataProcessingReport/for_debug.R"
-  )
+  exp_report_r_file_name <- 
+    here(
+      "Data/Growers", 
+      ffy, 
+      "DataProcessingReport/for_debug.R"
+    )
 
   writeLines(exp_rmd_yiy, con = exp_report_rmd_file_name)
 
@@ -746,9 +751,9 @@ make_trial_design <- function(
 read_rmd <- function(file_name, locally_run = FALSE) {
 
   if (locally_run == FALSE) {
-    file_name_on_github <- paste0("https://github.com/tmieno2/DIFM/blob/master/", file_name, "?raw=TRUE")  
+    file_name_on_github <- paste0("https://github.com/tmieno2/OnFarmExperiments/blob/master/", file_name, "?raw=TRUE")  
     rmd_file <- suppressMessages(readLines(file_name_on_github))
-  } else if (here() == "/Users/tmieno2/Box/DIFM_DevTeam"){
+  } else if (here() == "/Users/tmieno2/OneDrive - University of Nebraska-Lincoln/OnFarmExperiments"){
     #=== if in TM's DIFM_DevTeam folder ===#
     rmd_file <- readLines(here("Codes", file_name))
   } else {
@@ -763,13 +768,13 @@ read_rmd <- function(file_name, locally_run = FALSE) {
 get_r_file_name <- function(file_name, locally_run = FALSE) {
 
   if (locally_run == FALSE) {
-    file_name <- paste0("https://github.com/tmieno2/DIFM/blob/master/", file_name, "?raw=TRUE")  
-  } else if (here() == "/Users/tmieno2/Box/DIFM_DevTeam"){
+    file_name <- paste0("https://github.com/tmieno2/OnFarmExperiments/blob/master/", file_name, "?raw=TRUE")  
+  } else if (here() == "/Users/tmieno2/OneDrive - University of Nebraska-Lincoln/OnFarmExperiments"){
     #=== if in TM's DIFM_DevTeam folder ===#
     file_name <- here("Codes", file_name)
   } else {
     #=== if in anybody's DIFM_HQ  ===#
-    file_name <- here("Codes_team", file_name)
+    file_name <- here("Codes", file_name)
   }
 
   return(file_name)
@@ -949,7 +954,7 @@ get_td_text <- function(input_type, gc_type, locally_run = FALSE) {
 
 }
 
-prepare_e02_rmd <- function(input_type, use_td, data_file, input_form, reporting_unit, input_unit, locally_run = FALSE){
+prepare_e02_rmd <- function(input_type, use_td, data_file, input_form, reporting_unit, input_unit, machine_width, locally_run = FALSE){
 
   if (!use_td) {
 
@@ -1086,9 +1091,13 @@ get_trial_parameter <- function(ffy) {
   }
 
   return(list(
+    crop = crop,
     n_base_rate = n_base_rate,
+    yield_data = w_field_data$yield_data,
+    tr_design_data = w_field_data$tr_data,
     input_data_trial = input_data_trial
   ))
+
 }
 
 

@@ -6,10 +6,12 @@
 
 ```{r Reading-yield-data}
 #--- yield ---#
-yield_raw <- here("Data/Growers", ffy) %>% 
-  list.files(recursive = TRUE, full.names = TRUE) %>%
-  .[str_detect(., "shp")] %>%
-  .[str_detect(., "yield")] %>%
+yield_raw <- 
+  here(
+    "Data/Growers", 
+    ffy,
+    "Raw/yield-file-name-here.shp"
+  ) %>% 
   st_read() %>% 
   #=== this took effect only when crs is missing ===#
   st_set_4326() %>% 
@@ -26,7 +28,7 @@ tm_layout_to_add
 
 ```
 
-## Drop observations in the headland 
+## Drop observations in the headland
 
 ```{r }
 drop_yp_ids <- here("Data/Growers", ffy, "TrialDesign") %>% 
@@ -90,7 +92,7 @@ tm_layout_to_add
 
 ```
 
-## Various checks and consistency 
+## Various checks and consistency
 
 
 ### Change variable names
@@ -297,11 +299,11 @@ if (med_distance < 1){
 
 ```{r }
 cat(
-  paste0("Before: ",  nrow(yield_grouped), "observations")
+  paste0("Before: ",  nrow(yield_grouped), " observations")
 )
 
 cat(
-  paste0("After: ",  nrow(yield_reduced_v), "observations")
+  paste0("After: ",  nrow(yield_reduced_v), " observations")
 )
 
 ```
@@ -379,9 +381,9 @@ yield_polygons <- yield_sf %>%
 
 ```{r }
 cat(
-  paste(
+  paste0(
     length(overlap_id_ls), 
-    " were identified as polygons that visited previously visited area with significant overlap."
+    " were identified as polygons that visited previously-visited area with significant overlap."
   )
 )
 ```
