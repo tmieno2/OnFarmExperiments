@@ -130,7 +130,6 @@ exp_process_make_report <- function(ffy, rerun = FALSE, locally_run = FALSE) {
   #/*----------------------------------*/
   #' ## Rmd(s) for input processing
   #/*----------------------------------*/
-
   e02 <- 
     trial_info %>% 
     rowwise() %>% 
@@ -1088,7 +1087,7 @@ get_trial_parameter <- function(ffy) {
 
     n_base_rate <- 0  
 
-  }
+  } 
 
   return(list(
     crop = crop,

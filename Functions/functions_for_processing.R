@@ -1175,12 +1175,13 @@ convert_N_unit <- function(
 # /*=================================================*/
 #' # Others
 # /*=================================================*/
-tm_layout_to_add <- tm_layout(
-  legend.outside = "TRUE",
-  frame = FALSE,
-  legend.title.size = 2,
-  legend.text.size = 1.5
-)
+tm_layout_to_add <- 
+  tm_layout(
+    legend.outside = "TRUE",
+    frame = FALSE,
+    legend.title.size = 2,
+    legend.text.size = 1.5
+  )
 
 # /*=================================================*/
 #' # Close the unclosed polygons
@@ -1433,3 +1434,5 @@ tpi <- function(x, scale = 3, win = "rectangle", normalize = FALSE,
   }
   return(tp)
 }
+
+

@@ -364,6 +364,7 @@ if (is_dense) {
     .[, .SD[.N != 1, ], by = new_group]
 
 } else {
+
   #=== Do not reduce ===#
   aa_input_reduced_v <- 
     data.table(aa_input_grouped) %>% 
