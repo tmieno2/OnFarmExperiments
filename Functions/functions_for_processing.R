@@ -1242,7 +1242,8 @@ st_set_4326 <- function(data_sf) {
 #   geom_sf(data = input_polygons[yield_polygons[5000, ], ], col = "blue") +
 #   geom_sf(data = yield_polygons[5000, ], fill = "red", alpha = 0.3)
 
-intersect_yield_input <- function(yield_polygons, input_polygons) {
+intersect_yield_input <- function(yield_polygons, input_polygons){
+
   pct_int <- 
     st_intersection(
       # dplyr::select(yield_polygons[50, ], yield_id, yield_area),
@@ -1252,8 +1253,7 @@ intersect_yield_input <- function(yield_polygons, input_polygons) {
     #--- percentage overlapped ---#
     mutate(
       sub_pct = as.numeric(st_area(.)) / yield_area
-    ) 
-    %>%
+    ) %>%
     data.table() %>%
     #--- total sub_pct by yield polygon ---#
     .[, tot_sub_pct := sum(sub_pct), by = yield_id] %>%
