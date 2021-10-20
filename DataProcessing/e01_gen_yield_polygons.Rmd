@@ -28,72 +28,7 @@ tm_layout_to_add
 
 ```
 
-## Drop observations in the headland
-
-```{r }
-drop_yp_ids <- here("Data/Growers", ffy, "TrialDesign") %>% 
-  list.files(recursive = TRUE, full.names = TRUE) %>%
-  .[str_detect(., "shp")] %>%
-  .[str_detect(., "trial-design")] %>%
-  tibble(td_file = .) %>% 
-  rowwise() %>% 
-  mutate(
-    design_sf = list(
-      st_read(td_file) %>% 
-      setnames(names(.), tolower(names(.))) %>% 
-      st_set_4326() %>% 
-      st_transform_utm()
-    )
-  ) %>% 
-  mutate(
-    in_headland_id = list(
-      design_sf %>% 
-        mutate(type = tolower(type)) %>% 
-        filter(type == "headland") %>% 
-        yield_raw[., ] %>% 
-        pull(yp_id)
-    )
-  ) %>% 
-  #=== which yield points are inside? ===#
-  # Some yield observations are outside of the trial design.
-  # inside_td is use to remove such points
-  mutate(
-    inside_td = list(
-        yield_raw[design_sf, ] %>% 
-        pull(yp_id)
-      ) 
-  ) %>% 
-  ungroup() %>% 
-  dplyr::select(in_headland_id, inside_td) 
-
-
-in_headland_id <- pull(drop_yp_ids, in_headland_id) %>% 
-    reduce(c) %>% 
-    unique()
-
-in_td_id <- pull(drop_yp_ids, inside_td) %>% 
-    reduce(c) %>% 
-    unique()
-
-yield <- filter(
-  yield_raw, 
-  !(yp_id %in% in_headland_id) & (yp_id %in% in_td_id) 
-)
-
-
-```
-
-```{r viz-yield-data-2}
-tm_shape(yield_raw) +
-  tm_dots(col = "blue") +
-tm_shape(yield) +
-  tm_dots(col = "red") +
-tm_layout_to_add 
-
-```
-
 ## Various checks and consistency
-
 
 ### Change variable names
 
