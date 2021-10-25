@@ -186,7 +186,7 @@ ggplot() +
 ### Flag unreliable observations
 
 ```{r }
-max_dev_dt <- max_dev_table[crop == trial_info$crop, ]
+max_dev_dt <- max_dev_table[crop == trial_pars$crop, ]
 #=== convert max_dev_table if in ha instead of ac ===#
 
 if(units == "metric"){
@@ -194,17 +194,20 @@ if(units == "metric"){
 }
 
 #=== yield data after removing unreliable inputs ===#
-yield_input_data <- 
+yield_input_data_pre <- 
   input_pct %>% 
   dplyr::select(input_type, form, input_pct_data) %>% 
   left_join(max_dev_dt, by = "input_type") %>% 
-  mutate(input_pct_data = list(
+  mutate(input_pct_data_pre = list(
       data.table::copy(input_pct_data) %>% 
       #=== 1 means within the threshold ===#
       .[, over_lap_test := fifelse(tot_sub_pct > 0.9 & tot_sub_pct < 1.1, 1, 0)] %>% 
       #=== 1 means okay ===#
       .[, deviation_test := fifelse(dev_input_rate < max_dev_allowed, 1, 0)] %>% 
-      .[, .(yield_id, input_rate, over_lap_test, deviation_test)] %>% 
+      .[, .(yield_id, input_rate, over_lap_test, deviation_test)]
+  )) %>% 
+  mutate(input_pct_data_out = list(
+    copy(input_pct_data_pre) %>% 
       setnames(
         "input_rate",
         paste0(tolower(input_type), "_rate", "_", form)
@@ -216,8 +219,11 @@ yield_input_data <-
           paste0(tolower(input_type), "_", form, "_deviation_test")
         )
       )
-  )) %>% 
-  pull(input_pct_data) %>% 
+  ))
+
+yield_input_data <-
+  yield_input_data_pre %>% 
+  pull(input_pct_data_out) %>% 
   reduce(inner_join, by = "yield_id") %>% 
   inner_join(yield_polygons, ., by = "yield_id") %>% 
   #=== add base n-rate column ===#
@@ -236,7 +242,8 @@ yield_trd <-
 
 dt_trd_int <- tibble(type = "trial-design", int_info = list(yield_trd))
 
-dt_input_int <- input_pct %>% 
+dt_input_int <- 
+  input_pct %>% 
   mutate(type = paste0(input_type, "-", form)) %>% 
   dplyr::select(type, yield_input_int) %>% 
   rename(int_info = yield_input_int)
@@ -245,6 +252,41 @@ detailed_int_data <-
   rbind(dt_trd_int, dt_input_int) %>% 
   #=== add base n-rate column ===#
   mutate(n_base = n_base)
+
+```
+
+### Visualization
+
+```{r }
+viz <- 
+  yield_input_data_pre %>% 
+  mutate(input_data_viz = list(
+    inner_join(yield_polygons, input_pct_data_pre, by = "yield_id") %>% 
+    st_as_sf()
+  )) %>% 
+  dplyr::select(input_type, form, input_data_viz) %>% 
+  mutate(viz_overlap = list(
+    ggplot(data = input_data_viz) +
+    geom_sf(aes(fill = (over_lap_test == 1)))
+  )) %>% 
+  mutate(viz_deviation = list(
+    ggplot(data = input_data_viz) +
+    geom_sf(aes(fill = (deviation_test == 1)))
+  )) 
+
+```
+
+**Overlap (1 means passing the overlap test)**
+
+```{r }
+viz$viz_overlap
+
+```
+
+**Deviation (1 means passing the deviation test)**
+
+```{r }
+viz$viz_deviation
 
 ```
 
