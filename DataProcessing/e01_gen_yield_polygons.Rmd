@@ -6,7 +6,7 @@
 
 ```{r Reading-yield-data}
 #--- yield ---#
-yield_raw <- 
+yield <- 
   here(
     "Data/Growers", 
     ffy,
@@ -22,7 +22,7 @@ yield_raw <-
 ```
 
 ```{r viz-yield-data}
-tm_shape(yield_raw) +
+tm_shape(yield) +
   tm_dots() +
 tm_layout_to_add 
 
@@ -67,7 +67,9 @@ This code assumes that if `distance` is in meter, then other variables (e.g., `w
 
 ```{r Checking-units-of-measurements}
 
-dist_test <- yield %>% 
+dist_test <- 
+  yield %>% 
+  dplyr::select(distance) %>% 
   cbind(., st_coordinates(.)) %>% 
   data.table() %>% 
   .[, dif_X := c(0, diff(X))] %>% 
@@ -124,7 +126,9 @@ tm_layout_to_add
 
 ```
 
-## Flag bad yield data points
+## Flag yield outlier data points
+
+### Flag
 
 ```{r Flagging-outliers}
 #/*----------------------------------*/
@@ -132,7 +136,8 @@ tm_layout_to_add
 #/*----------------------------------*/
 sd_factor <- 4
 
-yield_grouped <- flag_bad_points(
+yield_grouped <- 
+  flag_bad_points(
     yield_grouped, 
     "yield_vol", 
     sd = sd_factor
@@ -144,54 +149,82 @@ yield_grouped <- flag_bad_points(
 is_speed_available <- !all(is.na(yield_grouped$speed))
 
 if (is_speed_available){
-  yield_grouped %>%
-  #=== speed-based ===#
-  mutate(flag_bad = 
-    ifelse(
-      speed < 0.7 | speed > 8.2,
-      1, 
-      flag_bad
+  yield_grouped <- 
+    flag_bad_points(
+      yield_grouped, 
+      "speed", 
+      sd = sd_factor
     )
-  )
 }
 
 ```
 
-Yield distribution after cleaning (sd = `r sd_factor`)
+### Visualize (yield histogram after dropping flagged observations)
+
+**Yield distribution after cleaning (sd = `r sd_factor`) based on `yield` outliers.**
 
 ```{r }
-yield_grouped %>% filter(flag_bad == 0) %>% 
+yield_grouped %>% 
+  filter(ol_yield_vol == 0) %>% 
   pull(yield_vol) %>% 
   hist()
 ```
 
-<br> 
+**Yield distribution after cleaning (sd = `r sd_factor`) based on `speed` outliers.**
 
-`speed` vs `yield_vol`
 
 ```{r }
-# now add speed if speed is missing 
-if (is_speed_available) {
-  ggplot(yield_grouped) +
-    geom_point(aes(y = yield_vol, x = speed)) 
-}
-
+yield_grouped %>% 
+  filter(ol_speed == 0) %>% 
+  pull(yield_vol) %>% 
+  hist()
 ```
 
-Which data points were dropped?
+**Yield distribution after cleaning (sd = `r sd_factor`) based on `yield` and `speed` outliers.**
 
 ```{r }
-tm_before <- tm_shape(yield_grouped) +
-  tm_symbols(col = "yield_vol", size = 0.05) +
-tm_layout_to_add 
+yield_grouped %>% 
+  filter(ol_speed == 0) %>% 
+  filter(ol_yield_vol == 0) %>% 
+  pull(yield_vol) %>% 
+  hist()
+```
 
-tm_after <- tm_shape(filter(yield_grouped, flag_bad == 1)) +
-  tm_symbols(col = "yield_vol", size = 0.05) +
+### Visualize (which data points were dropped)
+
+**All yield points**
+
+```{r }
+tm_shape(yield_grouped) +
+tm_symbols(col = "yield_vol", size = 0.05) +
 tm_layout_to_add  
-
-tmap_arrange(tm_before, tm_after)
 ```
- 
+
+**Yield points flagged based on `yield` and `speed`**
+
+```{r }
+tm_shape(filter(yield_grouped, ol_yield_vol == 1 | ol_speed == 1)) +
+tm_symbols(size = 0.05) +
+tm_layout_to_add   
+```
+
+**Yield points flagged based on `yield`**
+
+```{r }
+tm_shape(filter(yield_grouped, ol_yield_vol == 1)) +
+tm_symbols(col = "yield_vol", size = 0.1) +
+tm_layout_to_add   
+```
+
+**Yield points flagged based on `speed`**
+
+```{r }
+tm_shape(filter(yield_grouped, ol_speed == 1)) +
+tm_symbols(col = "speed", size = 0.1) +
+tm_layout_to_add   
+```
+
+
 ```{r }
 datasummary(
   yield_vol + width + speed + angle 
@@ -275,7 +308,7 @@ yield_sf <- yield_reduced_v %>%
 
 ```{r }
 tm_shape(yield_sf) +
-  tm_polygons(col = "yield_vol", lwd = 0.05) +
+tm_polygons(col = "yield_vol", lwd = 0.05) +
 tm_layout_to_add
 ```
 
@@ -283,10 +316,11 @@ tm_layout_to_add
 
 ```{r Self-intersecting-polygons-for-overlap-detection}
 #--- Find intersections among the polygons  ---#
-intersections <- st_intersection(
-  dplyr::select(yield_sf, yield_id, area),
-  dplyr::select(yield_sf, yield_id)
-) %>%
+intersections <- 
+  st_intersection(
+    dplyr::select(yield_sf, yield_id, area),
+    dplyr::select(yield_sf, yield_id)
+  ) %>%
   mutate(int_area = as.numeric(st_area(.))) %>%
   data.table() %>% 
   .[yield_id > yield_id.1, ] %>% 
@@ -299,14 +333,16 @@ intersections <- st_intersection(
 
 #--- find and flag the polygons that visited previously visited area ---#
 # 1/4 or more?
-overlap_id_ls <- filter(intersections, int_area / area >= 1 / 10) %>%
+overlap_id_ls <- 
+  filter(intersections, int_area / area >= 1 / 10) %>%
   pull(yield_id) %>%
   unique()
 
 #--- flag ---#
-yield_polygons <- yield_sf %>%   
+yield_polygons <- 
+  yield_sf %>%   
   filter(!st_is_empty(.)) %>% 
-  mutate(overlap = ifelse(
+  mutate(yield_overlap = ifelse(
     yield_id %in% overlap_id_ls,
     TRUE,
     FALSE

@@ -86,8 +86,9 @@ aa_input <-
 
 This code assumes that if `distance` is in meter, then other variables (e.g., `width`) are also measured in meter.
 
-```{r eval = F}
+```{r }
 dist_test <- aa_input %>% 
+  dplyr::select(distance) %>% 
   cbind(., st_coordinates(.)) %>% 
   data.table() %>% 
   .[, dif_X := c(0, diff(X))] %>% 
@@ -109,15 +110,15 @@ if (mean(dist_test$dif_distance_conv, na.rm = TRUE) < mean(dist_test$dif_distanc
 
 ### Transform measurement unit
 
-```{r eval = F}
+```{r }
 if (units == "imperial") {
   aa_input <- aa_input %>%
     mutate(
       width = conv_unit(width, "ft", "m"),
       distance = conv_unit(distance, "ft", "m")
     )
-}else{
-aa_input <- aa_input
+} else {
+  aa_input <- aa_input
 }
 ```
 
@@ -156,7 +157,6 @@ Definitions:
 ```{r }
 recover_section_id <- FALSE # this gets updated if the use of points data is necessary
 sectionid_var_available <- !all(is.na(aa_input$sectionid))
-
 
 
 if (sectionid_var_available) { # if non-na section id variable is in the dataset
@@ -266,60 +266,56 @@ tm_shape(filter(aa_input_grouped, change_group == TRUE)) +
 tm_layout_to_add 
 ```
 
-## Flag bad yield data points
+## Flag outlier input data points
 
 ```{r }
 sd_factor <- 4
 
-aa_input_grouped <- flag_bad_points(
-  aa_input_grouped, 
-  "input_rate", 
-  sd = sd_factor
-)  
+aa_input_grouped <- 
+  flag_bad_points(
+    data = aa_input_grouped, 
+    var_name = "input_rate", 
+    sd = sd_factor
+  )  
+
 ```
 
-Input distribution after cleaning:
+### Input distribution before and after cleaning
 
+**Before**
 ```{r }
-aa_input_grouped %>% filter(flag_bad == 0) %>% 
-  pull(input_rate) %>% 
-  hist()
-
 aa_input_grouped %>% 
   pull(input_rate) %>% 
   hist()
 ```
-
-`speed` vs `input_rate`
+**After**
 
 ```{r }
-if("speed" %in% names(aa_input_grouped) == FALSE){
-  aa_input_grouped$speed <- 0
-}
-
-speed_n_before <- ggplot(aa_input_grouped) +
-  geom_point(aes(y = input_rate, x = speed))
-
-speed_n_after <- ggplot(filter(aa_input_grouped, flag_bad == 0)) +
-  geom_point(aes(y = input_rate, x = speed))
-
-speed_n_before | speed_n_after
+aa_input_grouped %>% 
+  filter(ol_input_rate == 0) %>% 
+  pull(input_rate) %>% 
+  hist()
 ```
 
-Which data points were flagged as **bad** (right image)?
+### Which data points were flagged as outliers (right image)?
 
 ```{r }
-tm_before <- tm_shape(aa_input_grouped) +
+tm_before <- 
+  tm_shape(aa_input_grouped) +
   tm_symbols(col = "input_rate", size = 0.05) +
-tm_layout_to_add 
+  tm_layout_to_add 
 
-tm_after <- tm_shape(filter(aa_input_grouped, flag_bad == 1)) +
+tm_after <- 
+  tm_shape(filter(aa_input_grouped, ol_input_rate == 1)) +
   tm_symbols(col = "input_rate", size = 0.05) +
-tm_layout_to_add  
+  tm_layout_to_add  
 
 tmap_arrange(tm_before, tm_after)
+
 ```
- 
+
+### summary data
+
 ```{r }
 datasummary(
   input_rate + width + speed + angle 
@@ -405,7 +401,6 @@ aa_input_sf <-
   filter(area <= median(area) * 3) %>% 
   mutate(aa_input_id = 1:nrow(.)) %>% 
   filter(!st_is_empty(.)) %>% 
-  filter(flag_bad == 0) %>% 
   dplyr::select(aa_input_id, input_rate)
 
 ```

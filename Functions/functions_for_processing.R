@@ -304,17 +304,20 @@ get_med_dist_sec <- function(data_sf) {
 # data <- yield
 # var_name <- "yield_vol"
 
-flag_bad_points <- function(data, var_name, sd_factor) {
-  temp_data <- data.table(data) %>%
+flag_bad_points <- function(data, var_name, sd_factor, suffix = NA) {
+
+  temp_data <- 
+    data.table(data) %>%
     setnames(var_name, "var")
 
-  var_sd <- temp_data[
-    var >= quantile(var, prob = 0.05, na.rm = TRUE) &
-      var <= quantile(var, prob = 0.95, na.rm = TRUE),
-    .(median = median(var, na.rm = TRUE), sd = sd(var, na.rm = TRUE))
-  ]
+  var_sd <- 
+    temp_data[
+      var >= quantile(var, prob = 0.05, na.rm = TRUE) & var <= quantile(var, prob = 0.95, na.rm = TRUE),
+      .(median = median(var, na.rm = TRUE), sd = sd(var, na.rm = TRUE))
+    ]
 
-  temp_data <- temp_data %>%
+  temp_data <- 
+    temp_data %>%
     .[, flag_bad := 0] %>%
     .[
       var < var_sd$median - sd_factor * var_sd$sd,
@@ -324,9 +327,16 @@ flag_bad_points <- function(data, var_name, sd_factor) {
       var > var_sd$median + sd_factor * var_sd$sd,
       flag_bad := 1
     ] %>%
-    setnames("var", var_name)
+    setnames("var", var_name) 
+
+  if (is.na(suffix)) {
+    setnames(temp_data, "flag_bad", paste0("ol_", var_name))  
+  } else {
+    setnames(temp_data, "flag_bad", paste0("ol_", suffix))  
+  }
 
   return(st_as_sf(temp_data))
+
 }
 
 # /*=================================================*/
