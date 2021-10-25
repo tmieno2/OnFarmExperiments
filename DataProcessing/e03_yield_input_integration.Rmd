@@ -11,8 +11,7 @@
 yield_polygons <- here("Data/Growers", ffy, "Intermediate/yield_polygons.rds") %>% 
   readRDS() %>%
   mutate(yield_area = as.numeric(st_area(.))) %>% 
-  dplyr::select(yield_id, yield_area, yield_vol, flag_bad) %>% 
-  filter(flag_bad == 0)
+  dplyr::select(yield_id, yield_area, yield_vol)
 
 #=== vis ===#
 tm_shape(yield_polygons) +
@@ -60,7 +59,7 @@ mutate(
 trd_polygons <- 
   here(
     "Data/Growers", ffy, "TrialDesign",
-    paste0(trial_info$tr_design_data, ".shp")
+    paste0(trial_pars$tr_design_data, ".shp")
   ) %>% 
   st_read() 
 
