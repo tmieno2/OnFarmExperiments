@@ -267,11 +267,13 @@ viz <-
   dplyr::select(input_type, form, input_data_viz) %>% 
   mutate(viz_overlap = list(
     ggplot(data = input_data_viz) +
-    geom_sf(aes(fill = (over_lap_test == 1)))
+    geom_sf(aes(fill = (over_lap_test == 1))) +
+    scale_fill_discrete(name = form)
   )) %>% 
   mutate(viz_deviation = list(
     ggplot(data = input_data_viz) +
-    geom_sf(aes(fill = (deviation_test == 1)))
+    geom_sf(aes(fill = (deviation_test == 1))) +
+    scale_fill_discrete(name = form)
   )) 
 
 ```
