@@ -70,6 +70,12 @@ tm_shape(trd_polygons) +
 
 ```
 
+**Base input rate**
+
+```{r }
+n_base <- trial_pars$n_base_rate
+```
+
 ## Data alignment checks
 
 ### Yield and inputs
@@ -214,7 +220,9 @@ yield_input_data <-
   )) %>% 
   pull(input_pct_data) %>% 
   reduce(inner_join, by = "yield_id") %>% 
-  inner_join(yield_polygons, ., by = "yield_id")  
+  inner_join(yield_polygons, ., by = "yield_id") %>% 
+  #=== add base n-rate column ===#
+  mutate(n_base = n_base) 
 
 ```
 
@@ -234,7 +242,10 @@ dt_input_int <- input_pct %>%
   dplyr::select(type, yield_input_int) %>% 
   rename(int_info = yield_input_int)
 
-detailed_int_data <- rbind(dt_trd_int, dt_input_int)
+detailed_int_data <- 
+  rbind(dt_trd_int, dt_input_int) %>% 
+  #=== add base n-rate column ===#
+  mutate(n_base = n_base)
 
 ```
 
