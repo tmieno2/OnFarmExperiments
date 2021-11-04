@@ -55,6 +55,25 @@ add_inputs(
   strategy_ls = c("trial", "base", "trial", "trial", "base")
 )
 
+#/*----------------------------------*/
+#' ## Add Rx information
+#/*----------------------------------*/
+Rx_data <-
+  data.table(
+    form = c("MAP", "UREA32"),
+    model = c("granular", "AdaptN"),
+    file = c("Rx_granular.shp", "Rx_AdaptN.shp"),
+    date = c("04/01/2021", "04/02/2021")
+  )
+
+add_Rx(
+  json_file = "metadata.json",
+  farm = "BROB",
+  field = "1",
+  year = "2021",
+  Rx_data = Rx_data
+)
+
 #/*=================================================*/
 #' # Add field parameter templates  
 #/*=================================================*/

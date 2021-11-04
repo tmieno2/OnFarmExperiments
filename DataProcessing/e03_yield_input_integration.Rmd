@@ -14,8 +14,8 @@ yield_polygons <- here("Data/Growers", ffy, "Intermediate/yield_polygons.rds") %
   dplyr::select(yield_id, yield_area, yield_vol)
 
 #=== vis ===#
-tm_shape(yield_polygons) +
-  tm_fill(col = "yield_vol")
+tm_shape(filter(yield_polygons, ol_yield_vol == 0 & ol_speed == 0)) +
+  tm_fill(col = "yield_vol", style = "order")
 
 ```
 

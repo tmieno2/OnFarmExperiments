@@ -136,7 +136,13 @@ gen_fp_template <- function(farm, field, year, crop, input_ls, strategy_ls, json
           sq_rate = "numeric (no double quotes needed) or (Rx) prescription file name",
           min_rate = "numeric (no double quotes needed)",
           max_rate = "numeric (no double quotes needed)",
-          Rx_exists = "not available, exists (not received), received",
+          Rx_data = "file_name, none",
+          Granular_rec ="file_name, none",
+          Adaptn_rec = "file_name, none",
+          Varimax_rec ="file_name, none",
+          Optrix _rec= "file_name, none",
+          Greenseeker_rec = "file_name, none",
+          Sensor_data= "file_name, none",
           machine_width = "numeric (no double quotes needed)",
           section_num = "numeric (no double quotes needed)",
           input_plot_width = "numeric (no double quotes needed)",
@@ -390,6 +396,71 @@ add_inputs <- function(json_file, farm, field, year, input_ls, product_ls, strat
 #   input_ls = c("urea", "N_equiv"),
 #   strategy_ls = c("trial", "base")
 # )
+
+#/*=================================================*/
+#' # Add Rx (prescription from commercial software) data
+#/*=================================================*/
+# Rx_data <-
+#   data.table(
+#     form = c("MAP", "UREA32"),
+#     model = c("granular", "AdaptN"),
+#     file = c("Rx_granular.shp", "Rx_AdaptN.shp"),
+#     date = c("04/01/2021", "04/02/2021")
+#   )
+
+add_Rx <- function(json_file, farm, field, year, Rx_data) {
+
+  ffy <- paste(farm, field, year, sep = "_")
+
+  existing_data <-  
+    here("Data", "CommonData", json_file) %>% 
+    jsonlite::fromJSON(., flatten = TRUE) %>%
+    data.table() %>% 
+    .[, field_year := paste(farm, field, year, sep = "_")]
+    
+  w_data <- existing_data[field_year == ffy, ]
+
+  if (nrow(w_data) != 1) {
+    print(
+      "No (or duplicate) records for the specified farm-field-year are found. Check if the specified parameters are correct."
+    )
+    break
+  }
+
+  existing_Rx_data <- 
+    dplyr::select(w_data, starts_with("Rx.")) %>% 
+    lapply(., function(x) x[[1]]) %>% 
+    rbindlist(fill = TRUE)
+
+  for (i in seq_len(nrow(Rx_data))) {
+
+    temp_Rx_data <- Rx_data[i, ]
+    Rx_num <- nrow(existing_Rx_data) + i
+
+    eval(parse(text=paste("w_data[, Rx", Rx_num , ":= list(temp_Rx_data)]", sep = "")))
+
+  }
+
+  out_data <- 
+    rbind(
+      existing_data[field_year != ffy, ],
+      w_data,
+      fill = TRUE
+    ) %>% 
+    .[order(field_year),] %>% 
+    .[, field_year := NULL]
+
+  jsonlite::write_json(
+    out_data, 
+    file.path(
+      here("Data", "CommonData"),
+      json_file
+    ),
+    pretty = TRUE
+  )
+
+}
+
 
 #/*=================================================*/
 #' # Add a variable to a field parameter json file

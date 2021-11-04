@@ -113,6 +113,7 @@ if (units == "imperial") {
 
 yield_grouped <- group_points_sc(yield, by_var = NA, 30)  
 
+
 ```
 
 Red points are the points that are recognized for making a sharp turn from their respective previous points.
@@ -233,6 +234,64 @@ datasummary(
 )  
 ```
 
+## Flow delay correction
+
+```{r eval = F}
+
+get_vg(data = yield_grouped, delay = 0)
+
+get_vg <- function(data, delay) {
+
+  yield_for_shift <- 
+    data.table(data) %>% 
+    .[, .(yield_id, yield_vol, ol_yield_vol, ol_speed)]
+
+  yield_shifted_a <- 
+    data %>% 
+    mutate(
+      mph_to_ms = speed * 1609.34 / (60 * 60),
+      travel_time = distance / mph_to_ms,
+      cum_travel_time = cumsum(travel_time)
+    ) %>% 
+    data.table() %>% 
+    .[, .(yield_id, cum_travel_time)] 
+
+  yield_shifted_b <- 
+    copy(yield_shifted_a) %>% 
+    #=== 10 seconds shift ===#
+    .[, cum_travel_time := cum_travel_time - delay] %>% 
+    .[, .(yield_id, cum_travel_time)] %>% 
+    setnames("yield_id", "yield_id_b")
+
+  id_to_id <- yield_shifted_b[yield_shifted_a, on = "cum_travel_time", roll = "nearest"]
+
+  yield_only_geometry <- 
+    dplyr::select(data, yield_id) %>% 
+    rename(yield_id_b = yield_id) %>% 
+    data.table()
+
+  shifted_polygons <- 
+    yield_only_geometry[id_to_id, on = "yield_id_b"] %>% 
+    unique(by = "yield_id_b") %>% 
+    .[, .(yield_id, geometry)] %>% 
+    yield_for_shift[., on = "yield_id"] %>% 
+    .[ol_yield_vol == 0 & ol_speed == 0, ] %>% 
+    st_as_sf()
+
+  temp_vg <- 
+    variogram(
+      yield_vol ~ 1, 
+      data = shifted_polygons, 
+      width = 10, 
+      cutoff = 200
+    )
+
+  return(temp_vg)
+
+}
+
+```
+
 ## Yield data reduction when too dense
 
 <!-- Example: Hord_F98_2020 -->
@@ -284,19 +343,21 @@ cat(
 plan(multiprocess, workers = detectCores() - 2)
 
 #--- create polygons ---#
-all_polygons <- future_lapply(
-  #--- list of groups to loop over ---#
-  yield_reduced_v$group %>% unique(), 
-  #--- make polygons by group ---#
-  function(x) make_polygons(
-    filter(yield_reduced_v, group == x)
-  )
-) %>% 
-reduce(c) %>% 
-st_as_sfc()   
+all_polygons <- 
+  future_lapply(
+    #--- list of groups to loop over ---#
+    yield_reduced_v$group %>% unique(), 
+    #--- make polygons by group ---#
+    function(x) make_polygons(
+      filter(yield_reduced_v, group == x)
+    )
+  ) %>% 
+  reduce(c) %>% 
+  st_as_sfc()   
 
 #--- combine with the data ---#
-yield_sf <- yield_reduced_v %>% 
+yield_sf <- 
+  yield_reduced_v %>% 
   mutate(geometry = all_polygons) %>% 
   st_as_sf() %>% 
   st_set_crs(st_crs(yield)) %>% 
