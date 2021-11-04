@@ -992,7 +992,6 @@ get_input <- function(opt_gc_data, c_type, w_zone){
   opt_gc_data[type == c_type & zone_txt == paste0("Zone ", w_zone), input_rate] %>% round(digits = 0)
 }
 
-
 get_trial_parameter <- function(ffy) {
   #/*=================================================*/
   #' # Extract input information from field data
@@ -1020,6 +1019,15 @@ get_trial_parameter <- function(ffy) {
     dplyr::select(
       w_field_data, 
       starts_with("input")
+    ) %>%  
+    map(1) %>% 
+    rbindlist(fill = TRUE)
+
+  #=== Rx data ===#
+  rx_data <- 
+    dplyr::select(
+      w_field_data, 
+      starts_with("Rx.")
     ) %>%  
     map(1) %>% 
     rbindlist(fill = TRUE)
@@ -1055,7 +1063,7 @@ get_trial_parameter <- function(ffy) {
   input_data_trial <- 
     input_data[
       strategy == "trial", 
-      .(form, use_target_rate_instead, machine_width, unit, data)
+      .(form, use_target_rate_instead, machine_width, unit, data, Rx_data)
     ] %>% 
     .[, input_type := NA] %>% 
     .[, input_type := ifelse(form == "seed", "S", input_type)] %>% 
@@ -1094,7 +1102,8 @@ get_trial_parameter <- function(ffy) {
     n_base_rate = n_base_rate,
     yield_data = w_field_data$yield_data,
     tr_design_data = w_field_data$tr_data,
-    input_data_trial = input_data_trial
+    input_data_trial = input_data_trial,
+    rx_data = rx_data
   ))
 
 }
