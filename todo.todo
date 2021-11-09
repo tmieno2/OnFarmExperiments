@@ -6,8 +6,8 @@
   ☐ figure out 0 rate issues
   ✔ add fixed N rate @done (21-10-25 12:59)
   ✔ flagging viz @done (21-10-25 12:45)
-  ☐ use Rx file to check whether no data points mean 0 nitrogen rates (Logic-check if there is any 0 n rate in the presctiption, if so, then check if there are nitrogen rate points for those sections.)
-  ☐ For the as-applied data only flag the N rates that are above the SD (only high amounts of fertilizer)x
+  ☐ use Rx file to check whether no data points mean 0 nitrogen rates (Logic-check if there is any 0 n rate in the prescription, if so, then check if there are nitrogen rate points for those sections.)
+  ✔ For the as-applied data only flag the N rates that are above the SD (only high amounts of fertilizer)x @done (21-11-09 09:41)
   ☐ Add flags on N blocks and N High reference treatments for inconsistent input rates. Use the mode standard deviation to flag this data points.
   ✔ create **add_Rx()** function that lets the user to add Rx information @done (21-11-03 19:22)
   ☐ trial design variable in the final yield data
