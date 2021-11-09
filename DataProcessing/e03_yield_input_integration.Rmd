@@ -236,6 +236,10 @@ yield_input_data_pre <-
       setnames(
         "input_rate",
         paste0(tolower(input_type), "_rate", "_", form)
+      ) %>%
+      setnames(
+        "ol_input_rate",
+        paste0("ol_", tolower(input_type), "_", form)
       ) %>% 
       setnames(
         c("over_lap_test", "deviation_test"),
