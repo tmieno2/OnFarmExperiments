@@ -19,7 +19,7 @@ tm_shape(filter(yield_polygons, ol_yield_vol == 0 & ol_speed == 0)) +
 
 ```
 
-**Inputs**
+**Inputs and their Rx (if exist)**
 
 ```{r }
 
@@ -32,13 +32,21 @@ input_polygons <-
       paste0("aa-", input_type, "-", form, ".rds")
     )
   ) %>% 
-  mutate(
-    input_polygons = list(
-      readRDS(input_file_name)
-    )
-  ) 
+  mutate(input_polygons = list(readRDS(input_file_name))) %>% 
+  mutate(rx_polygons = list(
+    if (Rx_data != "none") {
+      st_read(here("Data/Growers", ffy, "Raw", Rx_data))
+    } else {
+      NULL
+    }
+  )) 
 
-#=== vis ===#
+
+``` 
+
+### Input polygons
+
+```{r }
 input_polygons %>% 
 mutate(
   tm_map = list(
@@ -50,8 +58,25 @@ mutate(
   )
 ) %>% 
 .$tm_map
+ 
+```
 
-``` 
+### Input polygons
+
+```{r eval = F}
+input_polygons %>% 
+mutate(
+  tm_map = list(
+    tm_shape(rx_polygons) +
+      tm_polygons(
+        # col = "input_rate", 
+        # title = paste0(input_type, "-", form)
+      )
+  )
+) %>% 
+.$tm_map
+ 
+```
 
 **Trial Design**
 

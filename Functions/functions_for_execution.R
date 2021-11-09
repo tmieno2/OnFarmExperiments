@@ -992,10 +992,11 @@ get_input <- function(opt_gc_data, c_type, w_zone){
   opt_gc_data[type == c_type & zone_txt == paste0("Zone ", w_zone), input_rate] %>% round(digits = 0)
 }
 
+#/*=================================================*/
+#' # Extract input information from field data
+#/*=================================================*/
 get_trial_parameter <- function(ffy) {
-  #/*=================================================*/
-  #' # Extract input information from field data
-  #/*=================================================*/
+  
   #--- field data ---#
   field_data <- jsonlite::fromJSON(
     file.path(

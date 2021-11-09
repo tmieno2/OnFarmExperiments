@@ -304,7 +304,7 @@ get_med_dist_sec <- function(data_sf) {
 # data <- yield
 # var_name <- "yield_vol"
 
-flag_bad_points <- function(data, var_name, sd_factor, suffix = NA) {
+flag_bad_points <- function(data, var_name, sd_factor, suffix = NA, upper = FALSE) {
 
   temp_data <- 
     data.table(data) %>%
@@ -316,19 +316,30 @@ flag_bad_points <- function(data, var_name, sd_factor, suffix = NA) {
       .(median = median(var, na.rm = TRUE), sd = sd(var, na.rm = TRUE))
     ]
 
-  temp_data <- 
-    temp_data %>%
-    .[, flag_bad := 0] %>%
-    .[
-      var < var_sd$median - sd_factor * var_sd$sd,
-      flag_bad := 1
-    ] %>%
-    .[
-      var > var_sd$median + sd_factor * var_sd$sd,
-      flag_bad := 1
-    ] %>%
-    setnames("var", var_name) 
-
+  if (upper == FALSE) {
+    temp_data <- 
+      temp_data %>%
+      .[, flag_bad := 0] %>%
+      .[
+        var < (var_sd$median - sd_factor * var_sd$sd),
+        flag_bad := 1
+      ] %>%
+      .[
+        var > (var_sd$median + sd_factor * var_sd$sd),
+        flag_bad := 1
+      ] %>%
+      setnames("var", var_name)
+  } else {
+    temp_data <- 
+      temp_data %>%
+      .[, flag_bad := 0] %>%
+      .[
+        var > (var_sd$median + sd_factor * var_sd$sd),
+        flag_bad := 1
+      ] %>%
+      setnames("var", var_name)
+  }
+   
   if (is.na(suffix)) {
     setnames(temp_data, "flag_bad", paste0("ol_", var_name))  
   } else {

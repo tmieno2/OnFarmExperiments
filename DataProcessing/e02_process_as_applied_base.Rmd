@@ -275,7 +275,9 @@ aa_input_grouped <-
   flag_bad_points(
     data = aa_input_grouped, 
     var_name = "input_rate", 
-    sd = sd_factor
+    sd_factor = sd_factor,
+    suffix = input_form,
+    upper = TRUE # only the high end flagged
   )  
 
 ```
