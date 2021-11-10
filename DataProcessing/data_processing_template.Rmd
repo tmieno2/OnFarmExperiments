@@ -93,6 +93,7 @@ data.table()
 
 #--- define field parameters ---#
 trial_info <- get_trial_parameter(ffy)
+input_trial_data <- trial_info$input_data_trial
 
 #---  ---#
 plan(multiprocess, workers = detectCores() - 2)

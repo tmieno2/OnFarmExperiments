@@ -10,8 +10,7 @@
 #--- yield ---#
 yield_polygons <- here("Data/Growers", ffy, "Intermediate/yield_polygons.rds") %>% 
   readRDS() %>%
-  mutate(yield_area = as.numeric(st_area(.))) %>% 
-  dplyr::select(yield_id, yield_area, yield_vol)
+  mutate(yield_area = as.numeric(st_area(.)))
 
 #=== vis ===#
 tm_shape(filter(yield_polygons, ol_yield_vol == 0 & ol_speed == 0)) +
@@ -24,7 +23,7 @@ tm_shape(filter(yield_polygons, ol_yield_vol == 0 & ol_speed == 0)) +
 ```{r }
 
 input_polygons <- 
-  trial_info %>% 
+  input_trial_data %>% 
   rowwise() %>% 
   mutate(
     input_file_name = here(
@@ -47,6 +46,7 @@ input_polygons <-
 ### Input polygons
 
 ```{r }
+
 input_polygons %>% 
 mutate(
   tm_map = list(
@@ -132,7 +132,7 @@ input_pct <-
   mutate(yield_input_int = list(
     st_intersection(
       dplyr::select(yield_polygons, yield_id, yield_area),
-      dplyr::select(input_polygons, input_rate)
+      dplyr::select(input_polygons, input_rate, ol_input_rate)
     ) %>% 
     #=== percentage of overlap relative to the are of a yield polygon ===#
     mutate(sub_pct = as.numeric(st_area(.)) / yield_area) %>%
@@ -146,13 +146,16 @@ input_pct <-
     .[, wm_input_rate := sum(sub_pct * input_rate) / tot_sub_pct, by = yield_id] %>%
     #--- weighted deviation from the mean ---#
     .[, dev_input_rate := sum(abs(sub_pct * (input_rate - wm_input_rate) / tot_sub_pct)), by = yield_id] %>%
+    #--- calculate sub_pct-weighted MEAN of outlier flag ---#
+    .[, ol := sum(sub_pct * ol_input_rate) / tot_sub_pct, by = yield_id] %>%
     #--- order by yield_id ---#
     .[order(yield_id), ] %>%
     .[, .(
       yield_id,
       tot_sub_pct,
       wm_input_rate,
-      dev_input_rate
+      dev_input_rate,
+      ol
     )] %>%
     setnames("wm_input_rate", "input_rate") %>%
     unique(by = "yield_id") 
@@ -229,7 +232,7 @@ yield_input_data_pre <-
       .[, over_lap_test := fifelse(tot_sub_pct > 0.9 & tot_sub_pct < 1.1, 1, 0)] %>% 
       #=== 1 means okay ===#
       .[, deviation_test := fifelse(dev_input_rate < max_dev_allowed, 1, 0)] %>% 
-      .[, .(yield_id, input_rate, over_lap_test, deviation_test)]
+      .[, .(yield_id, input_rate, ol, over_lap_test, deviation_test)]
   )) %>% 
   mutate(input_pct_data_out = list(
     copy(input_pct_data_pre) %>% 
@@ -238,7 +241,7 @@ yield_input_data_pre <-
         paste0(tolower(input_type), "_rate", "_", form)
       ) %>%
       setnames(
-        "ol_input_rate",
+        "ol",
         paste0("ol_", tolower(input_type), "_", form)
       ) %>% 
       setnames(
@@ -250,25 +253,99 @@ yield_input_data_pre <-
       )
   ))
 
+
+```
+
+## Alignment with Trial Design
+
+### Match treatment blocks and yield data
+
+```{r }
+yield_point <- 
+  readRDS(
+    here(
+      "Data/Growers", 
+      ffy,
+      "Intermediate/yield_point.rds"
+    )
+  )
+
+yield_trd <- 
+  st_intersection(yield_point, trd_polygons) %>% 
+  arrange(yield_id) %>% 
+  # mutate(int_area = as.numeric(st_area(.))) %>% 
+  data.table() %>% 
+ .[, .(yield_id, Trt, Rep, yield_vol)] %>%   
+ #=== flag outliers ===#
+  nest_by(Trt, Rep) %>% 
+  mutate(data = list(
+    flag_bad_points(
+      data = data, 
+      var_name = "yield_vol", 
+      sd_factor = 4
+    )   
+  )) %>%   
+  unnest() %>% 
+  data.table() %>% 
+  setnames("ol_yield_vol", "ol_yield_by_trt_block") %>% 
+  .[, .(yield_id, yield_vol, Trt, Rep, ol_yield_by_trt_block)]
+
+```
+
+### Visualization
+
+```{r }
+
+viz_outliers <-  
+  yield_trd %>% 
+  nest_by(Trt, Rep) %>%
+  mutate(viz = list(
+    ggplot() +
+      geom_histogram(
+        data = data.table(data)[ol_yield_by_trt_block == 0, ], 
+        aes(x = yield_vol),
+        fill = "blue",
+        col = "black",
+        binwidth = 5,
+        alpha = 0.4
+      ) +
+      geom_histogram(
+        data = data.table(data)[ol_yield_by_trt_block == 1, ], 
+        aes(x = yield_vol),
+        fill = "red",
+        col = "black",
+        binwidth = 5,
+        alpha = 0.4
+      ) +
+      ggtitle(paste0(
+        "Trt = ", Trt,     
+        ", Rep = ", Rep    
+      ))
+  ))
+
+viz_outliers$viz  
+
+```
+
+## Prepare datasets for analysis and check
+
+### Data for analysis
+
+```{r }
 yield_input_data <-
   yield_input_data_pre %>% 
   pull(input_pct_data_out) %>% 
   reduce(inner_join, by = "yield_id") %>% 
   inner_join(yield_polygons, ., by = "yield_id") %>% 
   #=== add base n-rate column ===#
-  mutate(n_base = n_base) 
-
+  mutate(n_base = n_base) %>% 
+  left_join(., yield_trd[, .(yield_id, Trt, Rep, ol_yield_by_trt_block)], by = "yield_id") 
+ 
 ```
 
-### Alignment with Trial Design
+### Detailed data for inspection
 
 ```{r }
-yield_trd <- 
-  st_intersection(yield_polygons, trd_polygons) %>% 
-  arrange(yield_id) %>% 
-  mutate(int_area = as.numeric(st_area(.))) %>% 
-  data.table()  
-
 dt_trd_int <- tibble(type = "trial-design", int_info = list(yield_trd))
 
 dt_input_int <- 
@@ -284,7 +361,7 @@ detailed_int_data <-
 
 ```
 
-### Visualization
+## Visualization
 
 ```{r }
 viz <- 

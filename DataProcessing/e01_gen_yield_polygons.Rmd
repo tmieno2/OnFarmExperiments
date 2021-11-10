@@ -16,8 +16,7 @@ yield <-
   #=== this took effect only when crs is missing ===#
   st_set_4326() %>% 
   st_transform_utm() %>%
-  setnames(names(.), tolower(names(.))) %>% 
-  mutate(yp_id = seq_len(nrow(.)))
+  setnames(names(.), tolower(names(.)))
 
 ```
 
@@ -105,7 +104,18 @@ if (units == "imperial") {
 
 ```
 
+### save the yield point data
 
+```{r }
+saveRDS(
+  yield,
+  here(
+    "Data/Growers", 
+    ffy,
+    "Intermediate/yield_point.rds"
+  )
+)  
+```
 
 ## Group points by angle
 
