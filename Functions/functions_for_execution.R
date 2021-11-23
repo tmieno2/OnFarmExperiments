@@ -7,16 +7,28 @@ non_exp_process_make_report <- function(ffy, rerun = FALSE, locally_run = FALSE)
   library(knitr)
   options(knitr.duplicate.label = "allow")
 
-  print(paste0("Proessing non-experiment data for ", ffy))
+  print(paste0("Processing non-experiment data for ", ffy))
 
-  boundary_file <- here("Data", "Growers", ffy) %>%
-    file.path(., "Raw/boundary.shp")
+  #--- define field parameters ---#
+  trial_parameters <- get_trial_parameter(ffy)
+  ex_data <- trial_parameters$ex_data
+  tr_file <- 
+    get_trial_parameter(ffy) %>% 
+    .$tr_design_data
 
-  if (!file.exists(boundary_file)) {
-    return(print("No boundary file exists."))
+  td_file <- 
+    here(
+      "Data", "Growers", ffy, "TrialDesign",
+      paste0(tr_file, ".shp")
+    ) 
+
+  if (!file.exists(td_file)) {
+    return(print("No trial design file exists."))
   }
 
-  #--- read in the template ---#
+  #/*----------------------------------*/
+  #' ## Template
+  #/*----------------------------------*/
   nep_rmd <- read_rmd("DataProcessing/data_processing_template.Rmd", locally_run = locally_run)
 
   if (rerun) {
@@ -30,8 +42,10 @@ non_exp_process_make_report <- function(ffy, rerun = FALSE, locally_run = FALSE)
       unlink(recursive = TRUE)
   }
 
-  #--- topography data ---#
-  topo_file <- file.path(here("Data", "Growers", ffy), "Intermediate/topography.rds")
+  #/*----------------------------------*/
+  #' ## Topography data
+  #/*----------------------------------*/
+  topo_file <- here("Data", "Growers", ffy, "Intermediate/topography.rds")
 
   if (!file.exists(topo_file)) {
     ne01 <- read_rmd("DataProcessing/ne01_topography.Rmd", locally_run = locally_run)
@@ -63,7 +77,9 @@ non_exp_process_make_report <- function(ffy, rerun = FALSE, locally_run = FALSE)
 
   nep_rmd_tsw <- c(nep_rmd_ts, ne03)
 
-  #--- EC data ---#
+  #/*----------------------------------*/
+  #' ## Other external data collected by the researchers
+  #/*----------------------------------*/
   ec_exists <- field_data[field_year == ffy, ec]
   ec_raw_file <- file.path(here("Data", "Growers", ffy), "Raw/ec.shp")
   ec_file <- file.path(here("Data", "Growers", ffy), "Intermediate/ec.rds")
@@ -995,6 +1011,7 @@ get_input <- function(opt_gc_data, c_type, w_zone){
 #/*=================================================*/
 #' # Extract input information from field data
 #/*=================================================*/
+
 get_trial_parameter <- function(ffy) {
   
   #--- field data ---#
@@ -1015,7 +1032,7 @@ get_trial_parameter <- function(ffy) {
   w_farm_field <- w_field_data$farm_field
   w_year <- w_field_data$year
 
-  #--- get input data ---#
+  #=== Input data ===#
   input_data <- 
     dplyr::select(
       w_field_data, 
@@ -1029,6 +1046,15 @@ get_trial_parameter <- function(ffy) {
     dplyr::select(
       w_field_data, 
       starts_with("Rx.")
+    ) %>%  
+    map(1) %>% 
+    rbindlist(fill = TRUE)
+
+  #=== External data ===#
+  ex_data <- 
+    dplyr::select(
+      w_field_data, 
+      starts_with("Ex.")
     ) %>%  
     map(1) %>% 
     rbindlist(fill = TRUE)
@@ -1104,7 +1130,8 @@ get_trial_parameter <- function(ffy) {
     yield_data = w_field_data$yield_data,
     tr_design_data = w_field_data$tr_data,
     input_data_trial = input_data_trial,
-    rx_data = rx_data
+    rx_data = rx_data,
+    ex_data = ex_data
   ))
 
 }

@@ -475,6 +475,83 @@ add_Rx <- function(json_file, farm, field, year, Rx_data) {
 
 }
 
+#/*=================================================*/
+#' # Add External Data 
+#/*=================================================*/
+
+add_Ex <- function(json_file, farm, field, year, Ex_data) {
+
+  ffy <- paste(farm, field, year, sep = "_")
+
+  existing_data <-  
+    here("Data", "CommonData", json_file) %>% 
+    jsonlite::fromJSON(., flatten = TRUE) %>%
+    data.table() %>% 
+    .[, field_year := paste(farm, field, year, sep = "_")]
+    
+  w_data <- existing_data[field_year == ffy, ]
+
+  if (nrow(w_data) != 1) {
+    print(
+      "No (or duplicate) records for the specified farm-field-year are found. Check if the specified parameters are correct."
+    )
+    break
+  }
+
+  existing_Ex_data <- 
+    dplyr::select(w_data, starts_with("Ex.")) %>% 
+    lapply(., function(x) x[[1]]) %>% 
+    rbindlist(fill = TRUE)
+
+  for (i in seq_len(nrow(Ex_data))) {
+
+    temp_Ex_data <- Ex_data[i, ]
+
+    already_there <- 
+      lapply(
+        1:nrow(existing_Ex_data),
+        function(x) identical(temp_Ex_data[, data_type], existing_Ex_data[x, attribute])
+      ) %>% 
+      unlist() %>% 
+      any()
+
+    if (already_there) {
+      print(temp_Ex_data)
+      print("You already have exactly the Ex entry of the same data type. Skipping") 
+    } else {
+      #=== find the largest Rx. suffix number ===#
+      Ex_num_e <- 
+        dplyr::select(w_data, starts_with("Ex.")) %>% 
+        names() %>% 
+        gsub("Ex.", "", .) %>% 
+        as.numeric() %>% 
+        max()
+      Ex_num <- Ex_num_e + 1
+      eval(parse(text=paste("w_data[, Ex.", Ex_num , ":= list(temp_Ex_data)]", sep = "")))
+    }
+
+  }
+
+  out_data <- 
+    rbind(
+      existing_data[field_year != ffy, ],
+      w_data,
+      fill = TRUE
+    ) %>% 
+    .[order(field_year),] %>% 
+    .[, field_year := NULL]
+
+  jsonlite::write_json(
+    out_data, 
+    file.path(
+      here("Data", "CommonData"),
+      json_file
+    ),
+    pretty = TRUE
+  )
+
+}
+
 
 #/*=================================================*/
 #' # Add a variable to a field parameter json file

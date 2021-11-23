@@ -6,9 +6,16 @@
   ☐ figure out 0 rate issues
   ✔ add fixed N rate @done (21-10-25 12:59)
   ✔ flagging viz @done (21-10-25 12:45)
-  ☐ use Rx file to check whether no data points mean 0 nitrogen rates (Logic-check if there is any 0 n rate in the prescription, if so, then check if there are nitrogen rate points for those sections.)
+  ✔ use Rx file to check whether no data points mean 0 nitrogen rates (Logic-check if there is any 0 n rate in the prescription, if so, then check if there are nitrogen rate points for those sections.) @done (21-11-22 17:32)
+  ✔ try overlap algorithm and visualize to identify yield polygons with 0 N rate. @done (21-11-22 17:32)
+  ✔ metadata.json @done (21-11-22 08:11)
+  ✔ modify template to add external data to metadata.json @done (21-11-22 08:09)
+  ☐ add SSURGO (what do you need from SSURGO): 
+  ☐ NDRE
+  ✔ add commercial Rx rate @done (21-11-22 20:00)
+  ✔ check uniformity in N block (only in N_ramp) and flag @done (21-11-22 11:47)
   ✔ For the as-applied data only flag the N rates that are above the SD (only high amounts of fertilizer)x @done (21-11-09 09:41)
-  ☐ Add flags on N blocks and N High reference treatments for inconsistent input rates. Use the mode standard deviation to flag this data points.
+  ✔ Add flags on N blocks and N High reference treatments for inconsistent input rates. Use the mode standard deviation to flag this data points. @done (21-11-10 10:08)
   ✔ create **add_Rx()** function that lets the user to add Rx information @done (21-11-03 19:22)
   ✔ trial design variable in the final yield data @done (21-11-09 16:45)
 

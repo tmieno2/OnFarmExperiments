@@ -74,6 +74,24 @@ add_Rx(
   Rx_data = Rx_data
 )
 
+#/*----------------------------------*/
+#' ## Add Ex information
+#/*----------------------------------*/
+Ex_data <-
+  data.table(
+    data_type = c("NDRE"),
+    file = c("21_BROB_W_SN_SRO.shp"),
+    date = c("04/02/2021")
+  )
+
+add_Ex(
+  json_file = "metadata.json",
+  farm = "BROB",
+  field = "1",
+  year = "2021",
+  Ex_data = Ex_data
+)
+
 #/*=================================================*/
 #' # Add field parameter templates  
 #/*=================================================*/

@@ -346,7 +346,11 @@ flag_bad_points <- function(data, var_name, sd_factor, suffix = NA, upper = FALS
     setnames(temp_data, "flag_bad", paste0("ol_", suffix))  
   }
 
-  return(st_as_sf(temp_data))
+  if ("sf" %in% class(data)) {
+    return(st_as_sf(temp_data))
+  } else {
+    return(temp_data)
+  }
 
 }
 

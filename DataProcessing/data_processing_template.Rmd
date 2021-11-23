@@ -7,6 +7,9 @@ output:
     toc_float:
       collapsed: true
     number_sections: true
+params: 
+  topography: false
+  ssurgo: false
 ---
 
 <style type="text/css">
@@ -82,14 +85,15 @@ source("https://raw.githubusercontent.com/brittanikedge/DIFM/main/Functions.R")
 ffy <- "field-year-here"  
 
 #--- read the variable name dictionary ---#
-dictionary <- fromJSON(
-  file.path(
-    here("Data", "CommonData"),
-    "variable_name_dictionary.json"
-  ),
-  flatten = TRUE
-) %>% 
-data.table()
+dictionary <- 
+  fromJSON(
+    file.path(
+      here("Data", "CommonData"),
+      "variable_name_dictionary.json"
+    ),
+    flatten = TRUE
+  ) %>% 
+  data.table()
 
 #--- define field parameters ---#
 trial_info <- get_trial_parameter(ffy)
@@ -104,12 +108,13 @@ opts_knit$set(root.dir = here("Data", "Growers", ffy))
 ```
 
 ```{r map-layout, cache = TRUE}
-tm_layout_to_add <- tm_layout(
-  legend.outside = "TRUE",
-  frame = FALSE,
-  legend.title.size = 2,
-  legend.text.size = 1.5
-)
+tm_layout_to_add <- 
+  tm_layout(
+    legend.outside = "TRUE",
+    frame = FALSE,
+    legend.title.size = 2,
+    legend.text.size = 1.5
+  )
 ```
 
 

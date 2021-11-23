@@ -9,31 +9,17 @@ library(FedData)
 + `get_ssurgo()` is defined in **functions_for_processing.R** 
 
 ```{r }
-#--- read the boundary file ---#
-boundary_file <- here("Data", "Growers", ffy, "Raw/boundary.shp") 
-
-td_file <- here("Data", "Growers", ffy, "TrialDesign") %>% 
-  list.files(full.names = TRUE) %>% 
-  .[str_detect(., "shp")] %>% 
-  .[str_detect(., "trial-design")] %>% 
-  #=== get the first one in case we have two separate files ===#
-  .[1]
-
-if (file.exists(boundary_file)) {
-  boundary_sf <- st_read(boundary_file) %>%
+boundary_sf <- 
+  here(
+    "Data", "Growers", ffy, "TrialDesign",
+    paste0(get_trial_parameter(ffy)$tr_design_data, ".shp")
+  ) %>% 
+  st_read() %>% 
   st_set_4326() %>%
   st_transform_utm() %>%
   st_bbox() %>%
   st_as_sfc() %>%
   st_as_sf()
-} else if (file.exists(td_file)) {
-  boundary_sf <- st_read(td_file) %>%
-  st_set_4326() %>%
-  st_transform_utm() %>%
-  st_bbox() %>%
-  st_as_sfc() %>%
-  st_as_sf()
-}
 
 boundary_sp <- as(boundary_sf, "Spatial")
 
@@ -47,8 +33,10 @@ unlink("Extractions", recursive = TRUE)
 
 #--- extract components ---#
 tabular <- ssurgo$tabular
-component <- tabular$component %>% 
+component <- 
+  tabular$component %>% 
   data.table()
+
 ```
 
 ## SSURGO soil characteristics data to be merged
@@ -60,7 +48,8 @@ component <- tabular$component %>%
 # soil_char_data[, .(mukey, comppct.r)]
 
 #--- data aggregation up to mukey ---#
-soil_char_data <- tabular$chorizon %>% 
+soil_char_data <- 
+  tabular$chorizon %>% 
   data.table() %>% 
   #--- aggregate up to cokey ---#
   .[, weight_hzdep := hzdepb.r - hzdept.r] %>% 
@@ -79,23 +68,27 @@ soil_char_data <- tabular$chorizon %>%
   )
 
 #--- soil names and descriptions ---#
-names <- tabular$muaggatt %>% 
+names <- 
+  tabular$muaggatt %>% 
   data.table() %>% 
   #--- pick the variables you want to keep ---#
   .[, .(muname, mukey, drclassdcd, drclasswettest)]
 
 #--- merge soil data to polygons ---#
-ssurgo_sf <- as(spatial <- ssurgo$spatial, "sf") %>% 
+ssurgo_sf <- 
+  ssurgo$spatial %>% 
   setnames(names(.), tolower(names(.))) %>% 
   mutate(mukey = as.numeric(as.character(mukey))) %>% 
   left_join(., soil_char_data, by = "mukey") %>% 
   left_join(., names, by = "mukey") 
+
 ```
 
-## Cut the SSURGO data to the boundary 
+## Cut the SSURGO data to the boundary
 
 ```{r }
-ssurgo_boundary_sf <- ssurgo_sf %>% 
+ssurgo_boundary_sf <- 
+  ssurgo_sf %>% 
   st_transform(st_crs(boundary_sf)) %>% 
   st_intersection(., boundary_sf)  
 ```
@@ -137,7 +130,8 @@ ggplot(ssurgo_boundary_sf) +
 ## Soil description for reporting
 
 ```{r }
-soil_desc <- tabular$cotext %>% 
+soil_desc <- 
+  tabular$cotext %>% 
   data.table() %>% 
   .[, .(cokey, text)] %>% 
   .[component[, .(cokey, mukey)], on = "cokey"]

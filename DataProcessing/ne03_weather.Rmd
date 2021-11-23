@@ -9,21 +9,29 @@ library(lubridate)
 
 ```{r }
 #--- get the boundary ---#
-boundary_sf <- st_read("Raw/boundary.shp") %>%
-  st_transform(4326) %>%
+boundary_sf <- 
+  here(
+    "Data", "Growers", ffy, "TrialDesign",
+    paste0(get_trial_parameter(ffy)$tr_design_data, ".shp")
+  ) %>% 
+  st_read() %>% 
+  st_set_4326() %>%
+  st_transform_utm() %>%
   st_bbox() %>%
-  st_as_sfc() 
+  st_as_sfc() %>%
+  st_as_sf()
 
-centroid <- boundary_sf %>% 
+centroid <- 
+  boundary_sf %>% 
   st_centroid() %>% 
   st_coordinates()
 
-year <- field_data %>% 
-  .[field_year == ffy, year]
+year <- field_data[field_year == ffy, year]
   
 #--- download Daymet ---#
 # goes 20 years back from the current year
-temp_daymet <- download_daymet(
+temp_daymet <- 
+  download_daymet(
     lat = centroid[1, "Y"],
     lon = centroid[1, "X"],
     start = year - 20,
@@ -31,6 +39,7 @@ temp_daymet <- download_daymet(
   ) %>% 
   .$data %>% 
   data.table()
+
 ```
 
 Go [here](https://daymet.ornl.gov/overview) and see the "Model Outputs and Data Products" for variable descriptions.
@@ -50,7 +59,8 @@ Go [here](https://daymet.ornl.gov/overview) and see the "Model Outputs and Data 
 + Water vapor pressure (vp, Pa): Water vapor pressure in pascals. Daily average partial pressure of water vapor.
 
 ```{r }
-temp_daymet <- temp_daymet %>% 
+temp_daymet <- 
+  temp_daymet %>% 
   setnames(
     names(.)[-c(1,2)], 
     c(
