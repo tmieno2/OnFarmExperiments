@@ -85,22 +85,6 @@ mutate(
 
 ```
 
-**Trial Design**
-
-```{r }
-trd_polygons <-
-  here(
-    "Data/Growers", ffy, "TrialDesign",
-    paste0(trial_pars$tr_design_data, ".shp")
-  ) %>%
-  st_read()
-
-#=== vis ===#
-tm_shape(trd_polygons) +
-  tm_polygons(col = "Trt")
-
-```
-
 **Base input rate**
 
 ```{r }
@@ -338,44 +322,6 @@ yield_input_data_pre <-
         )
       )
   ))
-
-
-```
-
-## Alignment with Trial Design
-
-### Match treatment blocks and yield data
-
-```{r }
-yield_point <-
-  readRDS(
-    here(
-      "Data/Growers",
-      ffy,
-      "Intermediate/yield_point.rds"
-    )
-  )
-
-yield_trd <-
-  st_intersection(yield_point, trd_polygons) %>%
-  arrange(yield_id) %>%
-  # mutate(int_area = as.numeric(st_area(.))) %>%
-  data.table() %>%
-  .[, .(yield_id, Trt, Rep, yield_vol, geometry)] %>%
- #=== flag outliers ===#
-  nest_by(Trt, Rep) %>%
-  mutate(data = list(
-    flag_bad_points(
-      data = data,
-      var_name = "yield_vol",
-      sd_factor = 4
-    )
-  )) %>%
-  unnest() %>%
-  data.table() %>%
-  setnames("ol_yield_vol", "ol_yield_by_trt_block") %>%
-  .[, .(yield_id, yield_vol, Trt, Rep, ol_yield_by_trt_block)]
-
 
 
 ```
