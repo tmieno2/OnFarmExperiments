@@ -6,15 +6,15 @@
 
 ```{r Reading-yield-data}
 #--- yield ---#
-yield <- 
+yield <-
   here(
-    "Data/Growers", 
+    "Data/Growers",
     ffy,
     "Raw/yield-file-name-here.shp"
-  ) %>% 
-  st_read() %>% 
+  ) %>%
+  st_read() %>%
   #=== this took effect only when crs is missing ===#
-  st_set_4326() %>% 
+  st_set_4326() %>%
   st_transform_utm() %>%
   setnames(names(.), tolower(names(.)))
 
@@ -23,7 +23,7 @@ yield <-
 ```{r viz-yield-data}
 tm_shape(yield) +
   tm_dots() +
-tm_layout_to_add 
+tm_layout_to_add
 
 ```
 
@@ -33,19 +33,19 @@ tm_layout_to_add
 
 ```{r Changing-variable-names}
 if("time" %in% names(yield) & "isotime" %in% names(yield)) {
-  yield <- dplyr::select(yield, - time) 
+  yield <- dplyr::select(yield, - time)
 }
 
 dict_yield <- dictionary[type == "yield", ]
 col_list <- dict_yield[, column]
 
 yield <- make_var_name_consistent(
-  yield, 
-  dict_yield 
+  yield,
+  dict_yield
 )
 
-yield <- dplyr::select(yield, matches(col_list)) %>% 
-  mutate(yield_id := 1:nrow(.)) %>% 
+yield <- dplyr::select(yield, matches(col_list)) %>%
+  mutate(yield_id := 1:nrow(.)) %>%
   filter(!is.na(yield_vol))
 
 if("offset" %in% names(yield) == FALSE){
@@ -57,7 +57,7 @@ if("offset" %in% names(yield) == FALSE){
 ### Order by time
 
 ```{r eval = F}
-setorder(yield, time)  
+setorder(yield, time)
 ```
 
 ### Check units
@@ -66,13 +66,13 @@ This code assumes that if `distance` is in meter, then other variables (e.g., `w
 
 ```{r Checking-units-of-measurements}
 
-dist_test <- 
-  yield %>% 
-  dplyr::select(distance) %>% 
-  cbind(., st_coordinates(.)) %>% 
-  data.table() %>% 
-  .[, dif_X := c(0, diff(X))] %>% 
-  .[, dif_Y := c(0, diff(Y))] %>%  
+dist_test <-
+  yield %>%
+  dplyr::select(distance) %>%
+  cbind(., st_coordinates(.)) %>%
+  data.table() %>%
+  .[, dif_X := c(0, diff(X))] %>%
+  .[, dif_Y := c(0, diff(Y))] %>%
   #--- distance in meter ---#
   .[, distance_r := sqrt(dif_X ^ 2 + dif_Y ^ 2)] %>%
   #--- dif in difference in meter and recorded distance ---#
@@ -110,18 +110,18 @@ if (units == "imperial") {
 saveRDS(
   yield,
   here(
-    "Data/Growers", 
+    "Data/Growers",
     ffy,
     "Intermediate/yield_point.rds"
   )
-)  
+)
 ```
 
 ## Group points by angle
 
 ```{r Grouping-yield-points-by-angle-and-detecting-sharp-turns-and-changes-of-rows}
 
-yield_grouped <- group_points_sc(yield, by_var = NA, 30)  
+yield_grouped <- group_points_sc(yield, by_var = NA, 30)
 
 
 ```
@@ -133,7 +133,7 @@ tm_shape(yield_grouped) +
     tm_dots(col = "blue") +
 tm_shape(filter(yield_grouped, change_group == TRUE)) +
     tm_dots(col = "red", size = 0.1) +
-tm_layout_to_add 
+tm_layout_to_add
 
 ```
 
@@ -147,10 +147,10 @@ tm_layout_to_add
 #/*----------------------------------*/
 sd_factor <- 4
 
-yield_grouped <- 
+yield_grouped <-
   flag_bad_points(
-    yield_grouped, 
-    "yield_vol", 
+    yield_grouped,
+    "yield_vol",
     sd = sd_factor
   )
 
@@ -160,10 +160,10 @@ yield_grouped <-
 is_speed_available <- !all(is.na(yield_grouped$speed))
 
 if (is_speed_available){
-  yield_grouped <- 
+  yield_grouped <-
     flag_bad_points(
-      yield_grouped, 
-      "speed", 
+      yield_grouped,
+      "speed",
       sd = sd_factor
     )
 }
@@ -175,9 +175,9 @@ if (is_speed_available){
 **Yield distribution after cleaning (sd = `r sd_factor`) based on `yield` outliers.**
 
 ```{r }
-yield_grouped %>% 
-  filter(ol_yield_vol == 0) %>% 
-  pull(yield_vol) %>% 
+yield_grouped %>%
+  filter(ol_yield_vol == 0) %>%
+  pull(yield_vol) %>%
   hist()
 ```
 
@@ -185,19 +185,19 @@ yield_grouped %>%
 
 
 ```{r }
-yield_grouped %>% 
-  filter(ol_speed == 0) %>% 
-  pull(yield_vol) %>% 
+yield_grouped %>%
+  filter(ol_speed == 0) %>%
+  pull(yield_vol) %>%
   hist()
 ```
 
 **Yield distribution after cleaning (sd = `r sd_factor`) based on `yield` and `speed` outliers.**
 
 ```{r }
-yield_grouped %>% 
-  filter(ol_speed == 0) %>% 
-  filter(ol_yield_vol == 0) %>% 
-  pull(yield_vol) %>% 
+yield_grouped %>%
+  filter(ol_speed == 0) %>%
+  filter(ol_yield_vol == 0) %>%
+  pull(yield_vol) %>%
   hist()
 ```
 
@@ -208,7 +208,7 @@ yield_grouped %>%
 ```{r }
 tm_shape(yield_grouped) +
 tm_symbols(col = "yield_vol", size = 0.05) +
-tm_layout_to_add  
+tm_layout_to_add
 ```
 
 **Yield points flagged based on `yield` and `speed`**
@@ -216,7 +216,7 @@ tm_layout_to_add
 ```{r }
 tm_shape(filter(yield_grouped, ol_yield_vol == 1 | ol_speed == 1)) +
 tm_symbols(size = 0.05) +
-tm_layout_to_add   
+tm_layout_to_add
 ```
 
 **Yield points flagged based on `yield`**
@@ -224,7 +224,7 @@ tm_layout_to_add
 ```{r }
 tm_shape(filter(yield_grouped, ol_yield_vol == 1)) +
 tm_symbols(col = "yield_vol", size = 0.1) +
-tm_layout_to_add   
+tm_layout_to_add
 ```
 
 **Yield points flagged based on `speed`**
@@ -232,16 +232,16 @@ tm_layout_to_add
 ```{r }
 tm_shape(filter(yield_grouped, ol_speed == 1)) +
 tm_symbols(col = "speed", size = 0.1) +
-tm_layout_to_add   
+tm_layout_to_add
 ```
 
 
 ```{r }
 datasummary(
-  yield_vol + width + speed + angle 
+  yield_vol + width + speed + angle
   ~ Mean + SD + median,
   data = yield_grouped
-)  
+)
 ```
 
 ## Flow delay correction
@@ -252,47 +252,47 @@ get_vg(data = yield_grouped, delay = 0)
 
 get_vg <- function(data, delay) {
 
-  yield_for_shift <- 
-    data.table(data) %>% 
+  yield_for_shift <-
+    data.table(data) %>%
     .[, .(yield_id, yield_vol, ol_yield_vol, ol_speed)]
 
-  yield_shifted_a <- 
-    data %>% 
+  yield_shifted_a <-
+    data %>%
     mutate(
       mph_to_ms = speed * 1609.34 / (60 * 60),
       travel_time = distance / mph_to_ms,
       cum_travel_time = cumsum(travel_time)
-    ) %>% 
-    data.table() %>% 
-    .[, .(yield_id, cum_travel_time)] 
+    ) %>%
+    data.table() %>%
+    .[, .(yield_id, cum_travel_time)]
 
-  yield_shifted_b <- 
-    copy(yield_shifted_a) %>% 
+  yield_shifted_b <-
+    copy(yield_shifted_a) %>%
     #=== 10 seconds shift ===#
-    .[, cum_travel_time := cum_travel_time - delay] %>% 
-    .[, .(yield_id, cum_travel_time)] %>% 
+    .[, cum_travel_time := cum_travel_time - delay] %>%
+    .[, .(yield_id, cum_travel_time)] %>%
     setnames("yield_id", "yield_id_b")
 
   id_to_id <- yield_shifted_b[yield_shifted_a, on = "cum_travel_time", roll = "nearest"]
 
-  yield_only_geometry <- 
-    dplyr::select(data, yield_id) %>% 
-    rename(yield_id_b = yield_id) %>% 
+  yield_only_geometry <-
+    dplyr::select(data, yield_id) %>%
+    rename(yield_id_b = yield_id) %>%
     data.table()
 
-  shifted_polygons <- 
-    yield_only_geometry[id_to_id, on = "yield_id_b"] %>% 
-    unique(by = "yield_id_b") %>% 
-    .[, .(yield_id, geometry)] %>% 
-    yield_for_shift[., on = "yield_id"] %>% 
-    .[ol_yield_vol == 0 & ol_speed == 0, ] %>% 
+  shifted_polygons <-
+    yield_only_geometry[id_to_id, on = "yield_id_b"] %>%
+    unique(by = "yield_id_b") %>%
+    .[, .(yield_id, geometry)] %>%
+    yield_for_shift[., on = "yield_id"] %>%
+    .[ol_yield_vol == 0 & ol_speed == 0, ] %>%
     st_as_sf()
 
-  temp_vg <- 
+  temp_vg <-
     variogram(
-      yield_vol ~ 1, 
-      data = shifted_polygons, 
-      width = 10, 
+      yield_vol ~ 1,
+      data = shifted_polygons,
+      width = 10,
       cutoff = 200
     )
 
@@ -320,9 +320,9 @@ if (med_distance < 1){
   num_obs_rg <- floor(2 / (med_distance))
 
   yield_reduced_v <- reduce_points_v(
-    data_sf = yield_grouped, 
-    nobs_per_group = num_obs_rg, 
-    var_interest = "yield_vol", 
+    data_sf = yield_grouped,
+    nobs_per_group = num_obs_rg,
+    var_interest = "yield_vol",
     by_var = "group"
   )
 
@@ -353,27 +353,27 @@ cat(
 plan(multiprocess, workers = detectCores() - 2)
 
 #--- create polygons ---#
-all_polygons <- 
+all_polygons <-
   future_lapply(
     #--- list of groups to loop over ---#
-    yield_reduced_v$group %>% unique(), 
+    yield_reduced_v$group %>% unique(),
     #--- make polygons by group ---#
     function(x) make_polygons(
       filter(yield_reduced_v, group == x)
     )
-  ) %>% 
-  reduce(c) %>% 
-  st_as_sfc()   
+  ) %>%
+  reduce(c) %>%
+  st_as_sfc()
 
 #--- combine with the data ---#
-yield_sf <- 
-  yield_reduced_v %>% 
-  mutate(geometry = all_polygons) %>% 
-  st_as_sf() %>% 
-  st_set_crs(st_crs(yield)) %>% 
+yield_sf <-
+  yield_reduced_v %>%
+  mutate(geometry = all_polygons) %>%
+  st_as_sf() %>%
+  st_set_crs(st_crs(yield)) %>%
   #--- get rid of transition polygons by area ---#
-  mutate(area = as.numeric(st_area(.))) %>% 
-  filter(area <= median(area) * 3) %>% 
+  mutate(area = as.numeric(st_area(.))) %>%
+  filter(area <= median(area) * 3) %>%
   mutate(yield_id = 1:nrow(.))
 ```
 
@@ -387,32 +387,32 @@ tm_layout_to_add
 
 ```{r Self-intersecting-polygons-for-overlap-detection}
 #--- Find intersections among the polygons  ---#
-intersections <- 
+intersections <-
   st_intersection(
     dplyr::select(yield_sf, yield_id, area),
     dplyr::select(yield_sf, yield_id)
   ) %>%
   mutate(int_area = as.numeric(st_area(.))) %>%
-  data.table() %>% 
-  .[yield_id > yield_id.1, ] %>% 
+  data.table() %>%
+  .[yield_id > yield_id.1, ] %>%
   .[, .(
-      int_area = sum(int_area), 
+      int_area = sum(int_area),
       area = mean(area)
-    ), 
+    ),
     by = yield_id
   ]
 
 #--- find and flag the polygons that visited previously visited area ---#
 # 1/4 or more?
-overlap_id_ls <- 
+overlap_id_ls <-
   filter(intersections, int_area / area >= 1 / 10) %>%
   pull(yield_id) %>%
   unique()
 
 #--- flag ---#
-yield_polygons <- 
-  yield_sf %>%   
-  filter(!st_is_empty(.)) %>% 
+yield_polygons <-
+  yield_sf %>%
+  filter(!st_is_empty(.)) %>%
   mutate(yield_overlap = ifelse(
     yield_id %in% overlap_id_ls,
     TRUE,
@@ -424,7 +424,7 @@ yield_polygons <-
 ```{r }
 cat(
   paste0(
-    length(overlap_id_ls), 
+    length(overlap_id_ls),
     " were identified as polygons that visited previously-visited area with significant overlap."
   )
 )
@@ -433,7 +433,7 @@ cat(
 ```{r dependson = "map-layout"}
 tm_shape(yield_polygons) +
   tm_fill(
-    col = "yield_vol", 
+    col = "yield_vol",
     alpha = 0.9
   ) +
   tm_borders(
@@ -446,8 +446,8 @@ tm_layout_to_add
 ## Save the data
 
 ```{r saving-the-polygons}
-here("Data/Growers", ffy, "Intermediate/yield_polygons.rds") %>% 
-  saveRDS(yield_polygons, .) 
+here("Data/Growers", ffy, "Intermediate/yield_polygons.rds") %>%
+  saveRDS(yield_polygons, .)
 
 ```
 

@@ -18,7 +18,8 @@ make_grower_folders <- function(field_data) {
 
   #--- get the field-year combinations ---#
   field_year_ls <- field_data$field_year
-  
+  # ffy <- field_year_ls[[2]]
+
   make_indiv_growers_folder <- function(ffy) {
 
     root_dir <- paste0(here(), "/Data/Growers/", ffy) 

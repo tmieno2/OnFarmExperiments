@@ -29,10 +29,10 @@ field_data <-
 #/*=================================================*/
 #--- create an field parameter entry for a farm-field-year ---#
 initiate_fp_entry(
-  farm = "BROB",
+  farm = "DSTE",
   field = "1",
   year = 2021,
-  crop  = "wheat",
+  crop  = "corn",
   json_file = "metadata"
 )
 
@@ -47,7 +47,7 @@ make_grower_folders(field_data)
 #--- add inputs data (as the details of the trial gets clear) ---#
 add_inputs(
   json_file = "metadata.json",
-  farm = "BROB",
+  farm = "DSTE",
   field = "1",
   year = "2021",
   input_ls = c("11520ZN", "N_equiv", "UREA46", "UAN32", "N_equiv"),

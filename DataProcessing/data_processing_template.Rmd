@@ -85,7 +85,7 @@ source("https://raw.githubusercontent.com/brittanikedge/DIFM/main/Functions.R")
 ffy <- "field-year-here"  
 
 #--- read the variable name dictionary ---#
-dictionary <- 
+dictionary <-
   fromJSON(
     file.path(
       here("Data", "CommonData"),

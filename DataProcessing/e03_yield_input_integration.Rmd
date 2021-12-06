@@ -8,7 +8,7 @@
 
 ```{r }
 #--- yield ---#
-yield_polygons <- here("Data/Growers", ffy, "Intermediate/yield_polygons.rds") %>% 
+yield_polygons <- here("Data/Growers", ffy, "Intermediate/yield_polygons.rds") %>%
   readRDS() %>%
   mutate(yield_area = as.numeric(st_area(.)))
 
@@ -23,47 +23,45 @@ tm_shape(filter(yield_polygons, ol_yield_vol == 0 & ol_speed == 0)) +
 ```{r }
 # input_polygons$rx_polygons
 
-input_polygons <- 
-  input_trial_data %>% 
-  rowwise() %>% 
+input_polygons <-
+  input_trial_data %>%
+  rowwise() %>%
   mutate(
     input_file_name = here(
-      "Data/Growers", ffy, "Intermediate", 
+      "Data/Growers", ffy, "Intermediate",
       paste0("aa-", input_type, "-", form, ".rds")
     )
-  ) %>% 
+  ) %>%
   #=== input ===#
-  mutate(input_polygons = list(readRDS(input_file_name))) %>% 
+  mutate(input_polygons = list(readRDS(input_file_name))) %>%
   #=== rx ===#
   mutate(rx_polygons = list(
     if (Rx_data != "none") {
-      st_read(here("Data/Growers", ffy, "Raw", Rx_data)) %>% 
+      st_read(here("Data/Growers", ffy, "Raw", Rx_data)) %>%
       mutate(rx_id = 1:nrow(.))
     } else {
       NULL
     }
-  )) 
-
-
-``` 
+  ))
+```
 
 ### Input polygons
 
 ```{r }
 
-input_polygons %>% 
+input_polygons %>%
 mutate(
   tm_map = list(
     tm_shape(input_polygons) +
     tm_fill(
-      col = "input_rate", 
+      col = "input_rate",
       title = paste0(input_type, "-", form)
     ) +
     tm_layout_to_add
   )
-) %>% 
+) %>%
 .$tm_map
- 
+
 ```
 
 ### Rx polygons
@@ -71,31 +69,31 @@ mutate(
 ```{r eval = F}
 
 
-input_polygons %>% 
-filter(Rx_data != "none") %>%  
+input_polygons %>%
+filter(Rx_data != "none") %>%
 mutate(
   tm_map = list(
     tm_shape(rx_polygons) +
     tm_polygons(
-      col = form, 
+      col = form,
       title = paste0(input_type, "-", form)
     ) +
     tm_layout_to_add
-  ) 
-) %>% 
+  )
+) %>%
 .$tm_map
- 
+
 ```
 
 **Trial Design**
 
 ```{r }
-trd_polygons <- 
+trd_polygons <-
   here(
     "Data/Growers", ffy, "TrialDesign",
     paste0(trial_pars$tr_design_data, ".shp")
-  ) %>% 
-  st_read() 
+  ) %>%
+  st_read()
 
 #=== vis ===#
 tm_shape(trd_polygons) +
@@ -116,8 +114,8 @@ Visually check whether yield data points are aligned well with as-applied input 
 ### Yield and inputs
 
 ```{r }
-tm_alignment <- 
-  input_polygons %>% 
+tm_alignment <-
+  input_polygons %>%
   mutate(
     tm_map = list(
       tm_shape(input_polygons) +
@@ -127,7 +125,7 @@ tm_alignment <-
     )
   )
 
-tm_alignment$tm_map 
+tm_alignment$tm_map
 
 ```
 
@@ -141,43 +139,43 @@ tm_alignment$tm_map
 
 ```{r }
 
-rx_no_aa_data <- 
-  input_polygons %>% 
-  filter(Rx_data != "none") %>% 
+rx_no_aa_data <-
+  input_polygons %>%
+  filter(Rx_data != "none") %>%
   mutate(rx_polygons = list(
-    rx_polygons %>% 
-    mutate(area = as.numeric(st_area(.))) %>% 
-    setnames(form, "tgt") %>% 
+    rx_polygons %>%
+    mutate(area = as.numeric(st_area(.))) %>%
+    setnames(form, "tgt") %>%
     mutate(tgt = as.numeric(tgt))
-  )) %>% 
+  )) %>%
   mutate(input_centroid = list(
     st_centroid(input_polygons)
-  )) %>% 
+  )) %>%
   mutate(rx_input = list(
     st_join(
       rx_polygons,
       st_transform(input_centroid, st_crs(rx_polygons))
     )
-  )) %>% 
+  )) %>%
   mutate(rx_nums = list(
     data.table(rx_input)[, .(num_points = .N), by = rx_id]
-  )) %>% 
+  )) %>%
   mutate(rx_polygons = list(
-    left_join(rx_polygons, rx_nums, by = "rx_id") %>% 
+    left_join(rx_polygons, rx_nums, by = "rx_id") %>%
     mutate(points_per_area = num_points / area)
-  )) %>% 
+  )) %>%
   mutate(rx_no_points = list(
-    rx_polygons %>% 
-    filter(tgt == 0) %>% 
-    filter(points_per_area < median(rx_polygons$points_per_area) * 0.3) 
-  )) %>% 
+    rx_polygons %>%
+    filter(tgt == 0) %>%
+    filter(points_per_area < median(rx_polygons$points_per_area) * 0.3)
+  )) %>%
   # mutate(gmap = list(
   #   tm_shape(rx_polygons) +
   #   tm_polygons(col = "points_per_area") +
   #   tm_shape(input_centroid) +
   #   tm_symbols(size = 0.1)
-  # )) %>% 
-  dplyr::select(form, input_type, rx_no_points) %>% 
+  # )) %>%
+  dplyr::select(form, input_type, rx_no_points) %>%
   mutate(rx_no_points = list(
     if (nrow(rx_no_points) == 0) {
       NULL
@@ -194,38 +192,38 @@ rx_no_aa_data <-
 
 ```{r }
 
-input_pct <- 
-  input_polygons %>% 
-  left_join(., rx_no_aa_data, by = c("form", "input_type")) %>% 
+input_pct <-
+  input_polygons %>%
+  left_join(., rx_no_aa_data, by = c("form", "input_type")) %>%
   #=== intersect yield and input polygons to check overlaps ===#
   mutate(yield_input_int = list(
     st_intersection(
       dplyr::select(yield_polygons, yield_id, yield_area),
       dplyr::select(input_polygons, input_rate, ol_input_rate)
-    ) %>% 
+    ) %>%
     #=== percentage of overlap relative to the are of a yield polygon ===#
     mutate(sub_pct = as.numeric(st_area(.)) / yield_area) %>%
     data.table()
-  )) %>% 
+  )) %>%
   mutate(yield_input_int_rx = list(
     if (!is.null(rx_no_points)) {
       st_intersection(
         dplyr::select(yield_polygons, yield_id, yield_area),
         st_transform(rx_no_points, st_crs(yield_polygons))
-      ) %>% 
+      ) %>%
       #=== percentage of overlap relative to the are of a yield polygon ===#
       mutate(sub_pct = as.numeric(st_area(.)) / yield_area) %>%
-      data.table() %>% 
-      .[, input_rate := 0] %>% 
-      .[, ol_input_rate := 0] %>% 
+      data.table() %>%
+      .[, input_rate := 0] %>%
+      .[, ol_input_rate := 0] %>%
       .[, .(yield_id, yield_area, input_rate, ol_input_rate, geometry, sub_pct) ]
     } else {
       NULL
     }
-  )) %>% 
+  )) %>%
   mutate(yield_input_int = list(
-    rbind(yield_input_int, yield_input_int_rx) 
-  )) %>% 
+    rbind(yield_input_int, yield_input_int_rx)
+  )) %>%
   mutate(input_pct_data = list(
     copy(yield_input_int) %>%
     #--- total sub_pct by yield polygon ---#
@@ -246,9 +244,9 @@ input_pct <-
       ol
     )] %>%
     setnames("wm_input_rate", "input_rate") %>%
-    unique(by = "yield_id") 
-  )) %>% 
-  dplyr::select(input_type, form, yield_input_int, input_pct_data) %>% 
+    unique(by = "yield_id")
+  )) %>%
+  dplyr::select(input_type, form, yield_input_int, input_pct_data) %>%
   mutate(
     #=== visualize overlap ===#
     gg_overlap = list(
@@ -256,11 +254,11 @@ input_pct <-
       geom_histogram(aes(x = tot_sub_pct)) +
       ggtitle(
         paste(
-          "Histogram of the percentage of yield polygons \n overlapping with", 
-          input_type, 
+          "Histogram of the percentage of yield polygons \n overlapping with",
+          input_type,
           "polygons"
         )
-      )     
+      )
     ),
     #=== visualize mix of rates ===#
     gg_dev = list(
@@ -269,10 +267,10 @@ input_pct <-
       ggtitle(
         paste(
           "Histogram of the deviation of ",
-          input_type, 
+          input_type,
           "\n to its mean by yield_id"
         )
-      )     
+      )
     )
   )
 
@@ -287,9 +285,9 @@ input_pct$gg_dev
 ### An example polygon with a problem
 
 ```{r }
-temp_yield_id <- input_pct$input_pct_data[[1]][tot_sub_pct > 2, yield_id][1] 
+temp_yield_id <- input_pct$input_pct_data[[1]][tot_sub_pct > 2, yield_id][1]
 
-overlapping_input <- input_pct$yield_input_int[[1]][yield_id == temp_yield_id] 
+overlapping_input <- input_pct$yield_input_int[[1]][yield_id == temp_yield_id]
 
 temp_yield_poly <- filter(yield_polygons, yield_id == temp_yield_id)
 
@@ -306,24 +304,24 @@ max_dev_dt <- max_dev_table[crop == trial_pars$crop, ]
 #=== convert max_dev_table if in ha instead of ac ===#
 
 if(units == "metric"){
-  max_dev_dt[, max_dev_allowed := max_dev_allowed * 2.47105] 
+  max_dev_dt[, max_dev_allowed := max_dev_allowed * 2.47105]
 }
 
 #=== yield data after removing unreliable inputs ===#
-yield_input_data_pre <- 
-  input_pct %>% 
-  dplyr::select(input_type, form, input_pct_data) %>% 
-  left_join(max_dev_dt, by = "input_type") %>% 
+yield_input_data_pre <-
+  input_pct %>%
+  dplyr::select(input_type, form, input_pct_data) %>%
+  left_join(max_dev_dt, by = "input_type") %>%
   mutate(input_pct_data_pre = list(
-      data.table::copy(input_pct_data) %>% 
+      data.table::copy(input_pct_data) %>%
       #=== 1 means within the threshold ===#
-      .[, over_lap_test := fifelse(tot_sub_pct > 0.9 & tot_sub_pct < 1.1, 1, 0)] %>% 
+      .[, over_lap_test := fifelse(tot_sub_pct > 0.9 & tot_sub_pct < 1.1, 1, 0)] %>%
       #=== 1 means okay ===#
-      .[, deviation_test := fifelse(dev_input_rate < max_dev_allowed, 1, 0)] %>% 
+      .[, deviation_test := fifelse(dev_input_rate < max_dev_allowed, 1, 0)] %>%
       .[, .(yield_id, input_rate, ol, over_lap_test, deviation_test)]
-  )) %>% 
+  )) %>%
   mutate(input_pct_data_out = list(
-    copy(input_pct_data_pre) %>% 
+    copy(input_pct_data_pre) %>%
       setnames(
         "input_rate",
         paste0(tolower(input_type), "_rate", "_", form)
@@ -331,7 +329,7 @@ yield_input_data_pre <-
       setnames(
         "ol",
         paste0("ol_", tolower(input_type), "_", form)
-      ) %>% 
+      ) %>%
       setnames(
         c("over_lap_test", "deviation_test"),
         c(
@@ -349,33 +347,33 @@ yield_input_data_pre <-
 ### Match treatment blocks and yield data
 
 ```{r }
-yield_point <- 
+yield_point <-
   readRDS(
     here(
-      "Data/Growers", 
+      "Data/Growers",
       ffy,
       "Intermediate/yield_point.rds"
     )
   )
 
-yield_trd <- 
-  st_intersection(yield_point, trd_polygons) %>% 
-  arrange(yield_id) %>% 
-  # mutate(int_area = as.numeric(st_area(.))) %>% 
-  data.table() %>% 
- .[, .(yield_id, Trt, Rep, yield_vol)] %>%   
+yield_trd <-
+  st_intersection(yield_point, trd_polygons) %>%
+  arrange(yield_id) %>%
+  # mutate(int_area = as.numeric(st_area(.))) %>%
+  data.table() %>%
+  .[, .(yield_id, Trt, Rep, yield_vol)] %>%
  #=== flag outliers ===#
-  nest_by(Trt, Rep) %>% 
+  nest_by(Trt, Rep) %>%
   mutate(data = list(
     flag_bad_points(
-      data = data, 
-      var_name = "yield_vol", 
+      data = data,
+      var_name = "yield_vol",
       sd_factor = 4
-    )   
-  )) %>%   
-  unnest() %>% 
-  data.table() %>% 
-  setnames("ol_yield_vol", "ol_yield_by_trt_block") %>% 
+    )
+  )) %>%
+  unnest() %>%
+  data.table() %>%
+  setnames("ol_yield_vol", "ol_yield_by_trt_block") %>%
   .[, .(yield_id, yield_vol, Trt, Rep, ol_yield_by_trt_block)]
 
 ```
@@ -384,13 +382,13 @@ yield_trd <-
 
 ```{r }
 
-viz_outliers <-  
-  yield_trd %>% 
+viz_outliers <-
+  yield_trd %>%
   nest_by(Trt, Rep) %>%
   mutate(viz = list(
     ggplot() +
       geom_histogram(
-        data = data.table(data)[ol_yield_by_trt_block == 0, ], 
+        data = data.table(data)[ol_yield_by_trt_block == 0, ],
         aes(x = yield_vol),
         fill = "blue",
         col = "black",
@@ -398,7 +396,7 @@ viz_outliers <-
         alpha = 0.4
       ) +
       geom_histogram(
-        data = data.table(data)[ol_yield_by_trt_block == 1, ], 
+        data = data.table(data)[ol_yield_by_trt_block == 1, ],
         aes(x = yield_vol),
         fill = "red",
         col = "black",
@@ -406,12 +404,12 @@ viz_outliers <-
         alpha = 0.4
       ) +
       ggtitle(paste0(
-        "Trt = ", Trt,     
-        ", Rep = ", Rep    
+        "Trt = ", Trt,
+        ", Rep = ", Rep
       ))
   ))
 
-viz_outliers$viz  
+viz_outliers$viz
 
 ```
 
@@ -421,19 +419,19 @@ viz_outliers$viz
 This code assumes that the prescription rate variable is named the same as the `form` in the `metadata.json` file.
 
 ```{r eval = F}
-cm_rx_data <- 
-  trial_info$rx_data %>% 
-  rowwise() %>% 
+cm_rx_data <-
+  trial_info$rx_data %>%
+  rowwise() %>%
   mutate(cm_rx = list(
     st_read(here("Data/Growers", ffy, "Raw", file))
-  )) %>% 
+  )) %>%
   mutate(yield_cm_rx = list(
-    st_intersection(yield_point, st_transform(cm_rx, st_crs(yield_point))) %>% 
-    data.table() %>% 
-    .[, c("yield_id", form), with = FALSE] %>% 
-    setnames(form, paste0(form, "_", model)) 
-  )) %>% 
-  pull(yield_cm_rx) %>% 
+    st_intersection(yield_point, st_transform(cm_rx, st_crs(yield_point))) %>%
+    data.table() %>%
+    .[, c("yield_id", form), with = FALSE] %>%
+    setnames(form, paste0(form, "_", model))
+  )) %>%
+  pull(yield_cm_rx) %>%
   reduce(left_join, by = "yield_id")
 
 ```
@@ -444,16 +442,16 @@ cm_rx_data <-
 
 ```{r }
 yield_input_data <-
-  yield_input_data_pre %>% 
-  pull(input_pct_data_out) %>% 
-  reduce(inner_join, by = "yield_id") %>% 
-  inner_join(yield_polygons, ., by = "yield_id") %>% 
+  yield_input_data_pre %>%
+  pull(input_pct_data_out) %>%
+  reduce(inner_join, by = "yield_id") %>%
+  inner_join(yield_polygons, ., by = "yield_id") %>%
   #=== add base n-rate column ===#
-  mutate(n_base = n_base) %>% 
+  mutate(n_base = n_base) %>%
   #=== join with trial design data ===#
   left_join(., yield_trd[, .(yield_id, Trt, Rep, ol_yield_by_trt_block)], by = "yield_id") 
   #=== join with commercial Rx data ===#
-  left_join(., cm_rx_data, by = "yield_id")
+  # left_join(., cm_rx_data, by = "yield_id")
 
 ```
 
@@ -462,14 +460,14 @@ yield_input_data <-
 ```{r }
 dt_trd_int <- tibble(type = "trial-design", int_info = list(yield_trd))
 
-dt_input_int <- 
-  input_pct %>% 
-  mutate(type = paste0(input_type, "-", form)) %>% 
-  dplyr::select(type, yield_input_int) %>% 
+dt_input_int <-
+  input_pct %>%
+  mutate(type = paste0(input_type, "-", form)) %>%
+  dplyr::select(type, yield_input_int) %>%
   rename(int_info = yield_input_int)
 
-detailed_int_data <- 
-  rbind(dt_trd_int, dt_input_int) %>% 
+detailed_int_data <-
+  rbind(dt_trd_int, dt_input_int) %>%
   #=== add base n-rate column ===#
   mutate(n_base = n_base)
 
@@ -478,23 +476,23 @@ detailed_int_data <-
 ## Visualization
 
 ```{r }
-viz <- 
-  yield_input_data_pre %>% 
+viz <-
+  yield_input_data_pre %>%
   mutate(input_data_viz = list(
-    inner_join(yield_polygons, input_pct_data_pre, by = "yield_id") %>% 
+    inner_join(yield_polygons, input_pct_data_pre, by = "yield_id") %>%
     st_as_sf()
-  )) %>% 
-  dplyr::select(input_type, form, input_data_viz) %>% 
+  )) %>%
+  dplyr::select(input_type, form, input_data_viz) %>%
   mutate(viz_overlap = list(
     ggplot(data = input_data_viz) +
     geom_sf(aes(fill = (over_lap_test == 1))) +
     scale_fill_discrete(name = form)
-  )) %>% 
+  )) %>%
   mutate(viz_deviation = list(
     ggplot(data = input_data_viz) +
     geom_sf(aes(fill = (deviation_test == 1))) +
     scale_fill_discrete(name = form)
-  )) 
+  ))
 
 ```
 
@@ -515,7 +513,7 @@ viz$viz_deviation
 ## Save
 
 ```{r }
-saveRDS(yield_input_data, file = here("Data", "Growers", ffy, "Analysis-Ready/analysis_data.rds"))
+saveRDS(yield_input_data, file = here("Data", "Growers", ffy, "Intermediate/yield_input_data.rds"))
 
 saveRDS(detailed_int_data, file = here("Data", "Growers", ffy, "DataProcessingReport/detailed_intersection_info.rds"))
 ```

@@ -11,7 +11,11 @@
   ✔ metadata.json @done (21-11-22 08:11)
   ✔ modify template to add external data to metadata.json @done (21-11-22 08:09)
   ☐ add SSURGO (what do you need from SSURGO): 
-  ☐ NDRE
+  ✔ work on make_td_folders: @done(21-12-01 11:07)
+  ☐ polygons input data
+  ☐ add NDVI
+  ☐ map of outliers for each block
+  ☐ local outlier detection (get rid of good points in within a collection of bad poitns): rolling average and shift
   ✔ add commercial Rx rate @done (21-11-22 20:00)
   ✔ check uniformity in N block (only in N_ramp) and flag @done (21-11-22 11:47)
   ✔ For the as-applied data only flag the N rates that are above the SD (only high amounts of fertilizer)x @done (21-11-09 09:41)
