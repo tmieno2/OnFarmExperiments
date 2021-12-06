@@ -361,7 +361,7 @@ yield_trd <-
   arrange(yield_id) %>%
   # mutate(int_area = as.numeric(st_area(.))) %>%
   data.table() %>%
-  .[, .(yield_id, Trt, Rep, yield_vol)] %>%
+  .[, .(yield_id, Trt, Rep, yield_vol, geometry)] %>%
  #=== flag outliers ===#
   nest_by(Trt, Rep) %>%
   mutate(data = list(
@@ -375,6 +375,8 @@ yield_trd <-
   data.table() %>%
   setnames("ol_yield_vol", "ol_yield_by_trt_block") %>%
   .[, .(yield_id, yield_vol, Trt, Rep, ol_yield_by_trt_block)]
+
+
 
 ```
 

@@ -137,23 +137,72 @@ tm_layout_to_add
 
 ```
 
-## Flag yield outlier data points
+## Intersect with the Trial Design and Flag Outliers by Treatment Block
 
-### Flag
+### Import the trial design and visualize
 
-```{r Flagging-outliers}
-#/*----------------------------------*/
-#' ## Yield-based
-#/*----------------------------------*/
+**Read the trial design shape file**
+
+```{r }
+trd_polygons <-
+  here(
+    "Data/Growers", ffy, "TrialDesign",
+    paste0(trial_pars$tr_design_data, ".shp")
+  ) %>%
+  st_read()
+```
+
+**Visualization**
+```{r }
+#=== vis ===#
+tm_shape(trd_polygons) +
+  tm_polygons(col = "Trt")
+```
+
+### Flag yield outliers by treatment block
+
+```{r }
 sd_factor <- 4
 
-yield_grouped <-
-  flag_bad_points(
-    yield_grouped,
-    "yield_vol",
-    sd = sd_factor
-  )
+yield_trd <-
+  #* identify which yield point falls in which treatment block
+  st_join(yield_grouped, trd_polygons) %>%
+  #* order by yield id
+  arrange(yield_id) %>%
+  data.table() %>%
+  .[, .(yield_id, group, Trt, Rep, yield_vol, geometry)] %>%
+  #* flag outliers by treatment block
+  nest_by(Trt, Rep) %>%
+  mutate(data = list(
+    flag_bad_points(
+      data = data,
+      var_name = "yield_vol",
+      sd_factor = sd_factor
+    )
+  )) %>%
+  unnest() %>%
+  data.table() %>%
+  .[, .(yield_id, Trt, Rep, ol_yield_vol)]
 
+#* join with yield_grouped
+yield_grouped <-
+  left_join(yield_grouped, yield_trd, by = "yield_id")
+
+```
+
+**Show the yield points that are flagged as outliers**
+
+1 indicates outliers.
+
+```{r }
+tm_shape(yield_grouped) +
+  tm_dots(col = "ol_yield_vol", style = "cat", title = "Yield Outlier") +
+  tm_layout_to_add
+```
+
+### Flag speed anomalies
+
+```{r Flagging-outliers}
 #/*----------------------------------*/
 #' ## Speed-based
 #/*----------------------------------*/
@@ -164,84 +213,105 @@ if (is_speed_available){
     flag_bad_points(
       yield_grouped,
       "speed",
-      sd = sd_factor
+      sd_factor = sd_factor
     )
+} else {
+  yield_grouped <-
+    yield_grouped %>%
+    mutate(ol_speed = 0)
 }
 
-```
-
-### Visualize (yield histogram after dropping flagged observations)
-
-**Yield distribution after cleaning (sd = `r sd_factor`) based on `yield` outliers.**
-
-```{r }
-yield_grouped %>%
-  filter(ol_yield_vol == 0) %>%
-  pull(yield_vol) %>%
-  hist()
-```
-
-**Yield distribution after cleaning (sd = `r sd_factor`) based on `speed` outliers.**
-
-
-```{r }
-yield_grouped %>%
-  filter(ol_speed == 0) %>%
-  pull(yield_vol) %>%
-  hist()
-```
-
-**Yield distribution after cleaning (sd = `r sd_factor`) based on `yield` and `speed` outliers.**
-
-```{r }
-yield_grouped %>%
-  filter(ol_speed == 0) %>%
-  filter(ol_yield_vol == 0) %>%
-  pull(yield_vol) %>%
-  hist()
-```
-
-### Visualize (which data points were dropped)
-
-**All yield points**
-
-```{r }
-tm_shape(yield_grouped) +
-tm_symbols(col = "yield_vol", size = 0.05) +
-tm_layout_to_add
-```
-
-**Yield points flagged based on `yield` and `speed`**
-
-```{r }
-tm_shape(filter(yield_grouped, ol_yield_vol == 1 | ol_speed == 1)) +
-tm_symbols(size = 0.05) +
-tm_layout_to_add
-```
-
-**Yield points flagged based on `yield`**
-
-```{r }
-tm_shape(filter(yield_grouped, ol_yield_vol == 1)) +
-tm_symbols(col = "yield_vol", size = 0.1) +
-tm_layout_to_add
 ```
 
 **Yield points flagged based on `speed`**
 
 ```{r }
-tm_shape(filter(yield_grouped, ol_speed == 1)) +
-tm_symbols(col = "speed", size = 0.1) +
+tm_shape(yield_grouped) +
+tm_dots(col = "ol_speed", style = "cat") +
 tm_layout_to_add
 ```
 
+### Identify yield points that are close to either the yield and speed outliers
+
+**Identify points that are close to outliers**
+```{r }
+close_to_ol_id <-
+  yield_grouped %>%
+  nest_by(group, Trt, Rep) %>%
+  mutate(outliers = list(
+    #* keep those that are either yield or speed outliers
+    filter(data, ol_yield_vol == 1 | ol_speed == 1) %>%
+      dplyr::select(ol_yield_vol) %>%
+      st_buffer(dist = 10)
+  )) %>%
+  mutate(close_to_outliers = list(
+    filter(data, ol_yield_vol == 0 & ol_speed == 0) %>%
+    dplyr::select(yield_id) %>%
+    st_join(., outliers) %>%
+    filter(!is.na(ol_yield_vol)) %>%
+    pull(yield_id) %>%
+    unique()
+  )) %>%
+  pull(close_to_outliers) %>%
+  reduce(c) %>%
+  unique()
+
+```
+
+**Create a variable that takes 1 if either an outlier or close-to-outliers**
+```{r }
+yield_grouped <-
+  yield_grouped %>%
+  mutate(drop_as_outliers =
+    ifelse(
+      yield_id %in% c(close_to_ol_id) | ol_yield_vol == 1 | ol_speed == 1,
+      1, 0
+    )
+  )
+
+```
+
+**Visualize the data points that are flagged to be dropped **
+
+Red points are flagged as either outliers themselves or close to outliers
+```{r }
+tm_shape(yield_grouped) +
+  tm_dots(col = "drop_as_outliers", style = "cat")
+```
+
+
+### Yield histogram before and after dropping flagged observations
 
 ```{r }
-datasummary(
-  yield_vol + width + speed + angle
-  ~ Mean + SD + median,
-  data = yield_grouped
-)
+dt_before <-
+  data.table(yield_grouped) %>%
+  .[, .(yield_vol)] %>%
+  .[, type := "Before"]
+
+dt_after <-
+  data.table(yield_grouped) %>%
+  .[drop_as_outliers == 0, ] %>%
+  .[, .(yield_vol)] %>%
+  .[, type := "After"]
+
+dt_dropped <-
+  data.table(yield_grouped) %>%
+  .[drop_as_outliers == 1, ] %>%
+  .[, .(yield_vol)] %>%
+  .[, type := "Dropped"]
+
+rbind(dt_before, dt_after, dt_dropped) %>%
+.[, type := factor(type, levels = c("Before", "After", "Dropped"))] %>%
+ggplot(data = .) +
+geom_histogram(
+  aes(x = yield_vol),
+  fill = "blue",
+  col = "black",
+  binwidth = 5,
+  alpha = 0.4
+) +
+facet_grid(type ~ .)
+
 ```
 
 ## Flow delay correction
@@ -375,10 +445,19 @@ yield_sf <-
   mutate(area = as.numeric(st_area(.))) %>%
   filter(area <= median(area) * 3) %>%
   mutate(yield_id = 1:nrow(.))
+
 ```
 
+**Yield map before dropping outliers**
 ```{r }
 tm_shape(yield_sf) +
+tm_polygons(col = "yield_vol", lwd = 0.05) +
+tm_layout_to_add
+```
+
+**Yield map after dropping outliers**
+```{r }
+tm_shape(filter(yield_sf, drop_as_outliers == 0)) +
 tm_polygons(col = "yield_vol", lwd = 0.05) +
 tm_layout_to_add
 ```
