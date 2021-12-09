@@ -16,7 +16,7 @@ source(
 # /*----------------------------------*/
 #' ## Load the field parameter data
 # /*----------------------------------*/
-field_data <- 
+field_data <-
   jsonlite::fromJSON(
     here("Data", "CommonData", "metadata.json"),
     flatten = TRUE
@@ -25,7 +25,7 @@ field_data <-
   .[, field_year := paste(farm, field, year, sep = "_")]
 
 #/*=================================================*/
-#' # Create new field parameter entries  
+#' # Create new field parameter entries
 #/*=================================================*/
 #--- create an field parameter entry for a farm-field-year ---#
 initiate_fp_entry(
@@ -36,12 +36,12 @@ initiate_fp_entry(
   json_file = "metadata"
 )
 
-#--- create data request folders ---#
-make_td_folders(field_data)
+# #--- create data request folders ---#
+# make_td_folders(field_data)
 
 #--- create grower data folders ---#
 # (final destination of the raw datasets collected from the participating
-# farmers)  
+# farmers)
 make_grower_folders(field_data)
 
 #--- add inputs data (as the details of the trial gets clear) ---#
@@ -50,9 +50,9 @@ add_inputs(
   farm = "DSTE",
   field = "1",
   year = "2021",
-  input_ls = c("11520ZN", "N_equiv", "UREA46", "UAN32", "N_equiv"),
-  product_ls = c("11520ZN", "120026", "UREA46", "UAN32", "KQXRN"),
-  strategy_ls = c("trial", "base", "trial", "trial", "base")
+  input_ls = c("N_equiv", "NH3", "UAN32"),
+  product_ls = c("11520", "NH3", "UAN32"),
+  strategy_ls = c("base", "trial", "trial")
 )
 
 #/*----------------------------------*/
@@ -92,28 +92,28 @@ add_Ex(
   Ex_data = Ex_data
 )
 
-#/*=================================================*/
-#' # Add field parameter templates  
-#/*=================================================*/
-#--- add field parameter templates ---#
+# #/*=================================================*/
+# #' # Add field parameter templates
+# #/*=================================================*/
+# #--- add field parameter templates ---#
 
-gen_fp_template(
-  farm = "Bohnhoff",
-  field = "Tims",
-  year = "2021",
-  crop = "corn",
-  input_ls = c("seed", "urea"),
-  strategy_ls = c("trial", "trial"),
-  json_file = "metadata.json"
-)
+# gen_fp_template(
+#   farm = "Bohnhoff",
+#   field = "Tims",
+#   year = "2021",
+#   crop = "corn",
+#   input_ls = c("seed", "urea"),
+#   strategy_ls = c("trial", "trial"),
+#   json_file = "metadata.json"
+# )
 
-field_data <- jsonlite::fromJSON(
-  here("Data", "CommonData", "fp_2021_TD.json"),
-  flatten = TRUE
-) %>%
-data.table() %>%
-.[, field_year := paste(farm, field, year, sep = "_")]
+# field_data <- jsonlite::fromJSON(
+#   here("Data", "CommonData", "fp_2021_TD.json"),
+#   flatten = TRUE
+# ) %>%
+# data.table() %>%
+# .[, field_year := paste(farm, field, year, sep = "_")]
 
-make_grower_folders(field_data)
+# make_grower_folders(field_data)
 
 

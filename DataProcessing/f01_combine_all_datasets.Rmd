@@ -95,5 +95,4 @@ ex_data <-
 
 ```
 
-# Intersect Non-experimental dat with yield data
 

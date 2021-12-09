@@ -1015,16 +1015,17 @@ get_input <- function(opt_gc_data, c_type, w_zone){
 get_trial_parameter <- function(ffy) {
   
   #--- field data ---#
-  field_data <- jsonlite::fromJSON(
-    file.path(
-      here("Data", "CommonData"),
-      "metadata.json"
-    ),
-    flatten = TRUE
-  ) %>%
-  data.table() %>%
-  .[, farm_field := paste(farm, field, sep = "_")] %>% 
-  .[, field_year := paste(farm_field, year, sep = "_")] 
+  field_data <- 
+    jsonlite::fromJSON(
+      file.path(
+        here("Data", "CommonData"),
+        "metadata.json"
+      ),
+      flatten = TRUE
+    ) %>%
+    data.table() %>%
+    .[, farm_field := paste(farm, field, sep = "_")] %>% 
+    .[, field_year := paste(farm_field, year, sep = "_")] 
 
   #--- get field parameters for the field-year ---#
   w_field_data <- field_data[field_year == ffy, ]

@@ -14,6 +14,9 @@
   ✔ work on make_td_folders: @done(21-12-01 11:07)
   ☐ polygons input data
   ☐ add NDVI
+  ☐ add_input: changes
+  ☐ add yield_data and tr_data as entries gen_fp_template()
+  ☐ create a multi-layer raster file for NDRE, and I write the code to accommodate it.
   ☐ map of outliers for each block
   ☐ local outlier detection (get rid of good points in within a collection of bad poitns): rolling average and shift
   ✔ add commercial Rx rate @done (21-11-22 20:00)

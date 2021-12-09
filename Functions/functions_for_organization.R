@@ -36,6 +36,7 @@ make_grower_folders <- function(field_data) {
     dir.create(paste0(root_dir, "/DataProcessingReport"))
     dir.create(paste0(root_dir, "/Conversations"))
     file.create(file.path(root_dir, "notes.md"))
+    file.create(file.path(root_dir, "meta_data_entry.R"))
 
     #--- Reports ---#
     dir.create(paste0(here(), "/Reports/Growers/", ffy))
@@ -94,6 +95,8 @@ gen_fp_template <- function(farm, field, year, crop, input_ls, strategy_ls, json
     crop_price = "numeric (no double quotes needed)",
     crop_unit = "bu or kg",
     raw_yield = "not received, lost, received",
+    yield_data = "yield monitor data file name here",
+    tr_data = "trial design data file name here",
     land_unit = "ac or ha",
     reporting_unit = "imperial or metric",
     h_width = list("numeric (no double quotes needed)"),
