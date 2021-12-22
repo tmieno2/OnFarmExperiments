@@ -26,9 +26,9 @@ non_exp_process_make_report <- function(ffy, rerun = FALSE, locally_run = FALSE)
     return(print("No trial design file exists."))
   }
 
-  #/*----------------------------------*/
+  # /*+++++++++++++++++++++++++++++++++++
   #' ## Template
-  #/*----------------------------------*/
+  # /*+++++++++++++++++++++++++++++++++++
   nep_rmd <- read_rmd("DataProcessing/data_processing_template.Rmd", locally_run = locally_run)
 
   if (rerun) {
@@ -42,40 +42,26 @@ non_exp_process_make_report <- function(ffy, rerun = FALSE, locally_run = FALSE)
       unlink(recursive = TRUE)
   }
 
-  #/*----------------------------------*/
+  # /*+++++++++++++++++++++++++++++++++++
   #' ## Topography data
-  #/*----------------------------------*/
-  topo_file <- here("Data", "Growers", ffy, "Intermediate/topography.rds")
-
-  if (!file.exists(topo_file)) {
-    ne01 <- read_rmd("DataProcessing/ne01_topography.Rmd", locally_run = locally_run)
-  } else {
-    ne01 <- read_rmd("DataProcessing/ne01_topography_show.Rmd", locally_run = locally_run)
-  }
+  # /*+++++++++++++++++++++++++++++++++++
+  ne01 <- read_rmd("DataProcessing/ne01_topography.Rmd", locally_run = locally_run)
 
   nep_rmd_t <- c(nep_rmd, ne01)
 
-  #--- SSURGO data ---#
-  ssurgo_file <- file.path(here("Data", "Growers", ffy), "Intermediate/ssurgo.rds")
-
-  if (!file.exists(ssurgo_file)) {
-    ne02 <- read_rmd("DataProcessing/ne02_ssurgo.Rmd", locally_run = locally_run)
-  } else {
-    ne02 <- read_rmd("DataProcessing/ne02_ssurgo_show.Rmd", locally_run = locally_run)
-  }
+  # /*+++++++++++++++++++++++++++++++++++
+  #' ## SSURGO data
+  # /*+++++++++++++++++++++++++++++++++++
+  ne02 <- read_rmd("DataProcessing/ne02_ssurgo.Rmd", locally_run = locally_run)
 
   nep_rmd_ts <- c(nep_rmd_t, ne02)
 
   #--- Weather data ---#
   weather_file <- file.path(here("Data", "Growers", ffy), "Intermediate/weather_daymet.rds")
 
-   if (!file.exists(weather_file)) {
-    ne03 <- read_rmd("DataProcessing/ne03_weather.Rmd", locally_run = locally_run)
-  } else {
-    ne03 <- read_rmd("DataProcessing/ne03_weather_show.Rmd", locally_run = locally_run)
-  }
-
-  nep_rmd_tsw <- c(nep_rmd_ts, ne03)
+  ne_weather <- read_rmd("DataProcessing/ne03_weather.Rmd", locally_run = locally_run)
+  
+  nep_rmd_tsw <- c(nep_rmd_ts, ne_weather)
 
   #/*----------------------------------*/
   #' ## Other external data collected by the researchers
@@ -1096,7 +1082,7 @@ get_trial_parameter <- function(ffy) {
     .[, input_type := NA] %>% 
     .[, input_type := ifelse(form == "seed", "S", input_type)] %>% 
     .[, input_type := ifelse(form %in% n_var_ls, "N", input_type)] %>% 
-    .[, reporting_unit := field_data$reporting_unit]
+    .[, reporting_unit := w_field_data$reporting_unit]
 
   #/*~~~~~~~~~~~~~~~~~~~~~~*/
   #' ### Base nitrogen 

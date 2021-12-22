@@ -1460,4 +1460,49 @@ tpi <- function(x, scale = 3, win = "rectangle", normalize = FALSE,
   return(tp)
 }
 
+# /*===========================================================
+#' # Get ssurgo data for a fiel
+# /*===========================================================
+get_ssurgo_props <- function(field, vars, summarize = FALSE) {
 
+  # Get SSURGO mukeys for polygon intersection
+  ssurgo_geom <-
+    SDA_spatialQuery(
+      field,
+      what = "geom",
+      db = "SSURGO",
+      geomIntersection = TRUE
+    ) %>%
+    st_as_sf() %>%
+    mutate(
+      area = as.numeric(st_area(.)),
+      area_weight = area / sum(area)
+    )
+
+  # Get soil properties for each mukey
+  mukeydata <-
+    get_SDA_property(
+      property = vars,
+      method = "Weighted Average",
+      mukeys = ssurgo_geom$mukey,
+      top_depth = 0,
+      bottom_depth = 150
+    )
+
+  ssurgo_data <- left_join(ssurgo_geom, mukeydata, by = "mukey")
+
+  if (summarize == TRUE) {
+    ssurgo_data_sum <-
+      ssurgo_data %>%
+      data.table() %>%
+      .[,
+        lapply(.SD, weighted.mean, w = area_weight),
+        .SDcols = vars
+      ]
+
+    return(ssurgo_data_sum)
+  } else {
+    return(ssurgo_data)
+  }
+  
+}
