@@ -496,7 +496,12 @@ yield_polygons <-
     yield_id %in% overlap_id_ls,
     TRUE,
     FALSE
-  ))
+  )) %>%
+  dplyr::select(
+    -yield_mass, -distance, -angle, -width, -time, -offset,
+    -X, -Y, -original_order_id, -change_group, -group,
+    -obs_per_group, -area
+  )
 
 ```
 
