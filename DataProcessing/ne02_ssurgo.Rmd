@@ -3,18 +3,16 @@
 ## Download SSURGO data for the area of interest
 
 ```{r extra-package, cache = F}
-library(FedData)
+library(soilDB)
 ```
 
-+ `get_ssurgo()` is defined in **functions_for_processing.R** 
-
 ```{r }
-boundary_sf <- 
+boundary_sf <-
   here(
     "Data", "Growers", ffy, "TrialDesign",
     paste0(get_trial_parameter(ffy)$tr_design_data, ".shp")
-  ) %>% 
-  st_read() %>% 
+  ) %>%
+  st_read() %>%
   st_set_4326() %>%
   st_transform_utm() %>%
   st_bbox() %>%
@@ -23,123 +21,28 @@ boundary_sf <-
 
 boundary_sp <- as(boundary_sf, "Spatial")
 
-dir_name <- "temp"
-
 #--- download SSURGO ---#
-ssurgo <- get_ssurgo(boundary_sp, label = dir_name, force.redo = TRUE)
-
-#--- remove the folder ---#
-unlink("Extractions", recursive = TRUE)
-
-#--- extract components ---#
-tabular <- ssurgo$tabular
-component <- 
-  tabular$component %>% 
-  data.table()
-
+vars <- c("sandtotal_r", "silttotal_r", "claytotal_r", "awc_r", "om_r", "dbovendry_r")
+ssurgo_data <- get_ssurgo_props(boundary_sp, vars = vars)
 ```
 
-## SSURGO soil characteristics data to be merged
-
-+ `get_aggregated()` is defined in **functions_for_processing.R** 
+## Visualize
 
 ```{r }
-# Note: some "mukey"s have NA comppct.r values 
-# soil_char_data[, .(mukey, comppct.r)]
-
-#--- data aggregation up to mukey ---#
-soil_char_data <- 
-  tabular$chorizon %>% 
-  data.table() %>% 
-  #--- aggregate up to cokey ---#
-  .[, weight_hzdep := hzdepb.r - hzdept.r] %>% 
-  get_aggregated(., key = "cokey", weight = "weight_hzdep") %>% 
-  #--- join with component by cokey ---#
-  .[data.table(component), on = "cokey"] %>% 
-  #--- comppct.r missing for som ---#
-  # scale so that the total pct is 100%
-  .[, comppct.r := comppct.r / sum(comppct.r) * 100, by = mukey] %>% 
-  .[is.na(comppct.r), comppct.r := 0] %>% 
-  #--- aggregate up to mukey ---#
-  get_aggregated(., key = "mukey", weight = "comppct.r", awc_sum = FALSE) %>% 
-  setnames(
-    c("claytotal.r", "silttotal.r", "sandtotal.r", "awc.r"), 
-    c("clay", "sand", "silt", "water_storage")
-  )
-
-#--- soil names and descriptions ---#
-names <- 
-  tabular$muaggatt %>% 
-  data.table() %>% 
-  #--- pick the variables you want to keep ---#
-  .[, .(muname, mukey, drclassdcd, drclasswettest)]
-
-#--- merge soil data to polygons ---#
-ssurgo_sf <- 
-  ssurgo$spatial %>% 
-  setnames(names(.), tolower(names(.))) %>% 
-  mutate(mukey = as.numeric(as.character(mukey))) %>% 
-  left_join(., soil_char_data, by = "mukey") %>% 
-  left_join(., names, by = "mukey") 
-
-```
-
-## Cut the SSURGO data to the boundary
-
-```{r }
-ssurgo_boundary_sf <- 
-  ssurgo_sf %>% 
-  st_transform(st_crs(boundary_sf)) %>% 
-  st_intersection(., boundary_sf)  
-```
-
-## Visualization
-
-### Clay
-
-```{r }
-ggplot(ssurgo_boundary_sf) +
-  geom_sf(aes(fill = clay)) +
-  scale_fill_viridis_c()
-```
-
-### Silt
-
-```{r }
-ggplot(ssurgo_boundary_sf) +
-  geom_sf(aes(fill = silt)) +
-  scale_fill_viridis_c()
-```
-
-### Sand
-
-```{r }
-ggplot(ssurgo_boundary_sf) +
-  geom_sf(aes(fill = sand)) +
-  scale_fill_viridis_c() 
-```
-
-### Water storage
-
-```{r }
-ggplot(ssurgo_boundary_sf) +
-  geom_sf(aes(fill = water_storage)) +
-  scale_fill_viridis_c() 
-```
-
-## Soil description for reporting
-
-```{r }
-soil_desc <- 
-  tabular$cotext %>% 
-  data.table() %>% 
-  .[, .(cokey, text)] %>% 
-  .[component[, .(cokey, mukey)], on = "cokey"]
+lapply(
+  vars,
+  function(x) {
+    ssurgo_data %>%
+      setnames(x, "var") %>%
+      ggplot(data = .) +
+      geom_sf(aes(fill = var)) +
+      scale_fill_gradient(name = x)
+  }
+)
 ```
 
 ## Save
 
 ```{r }
-saveRDS(ssurgo_boundary_sf, "Intermediate/ssurgo.rds")
-saveRDS(soil_desc, "Analysis-Ready/soil_desc.rds")
+saveRDS(ssurgo_data, here("Data", "Growers", ffy, "Intermediate/ssurgo.rds"))
 ```

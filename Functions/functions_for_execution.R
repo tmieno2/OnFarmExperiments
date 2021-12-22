@@ -45,52 +45,44 @@ non_exp_process_make_report <- function(ffy, rerun = FALSE, locally_run = FALSE)
   # /*+++++++++++++++++++++++++++++++++++
   #' ## Topography data
   # /*+++++++++++++++++++++++++++++++++++
-  ne01 <- read_rmd("DataProcessing/ne01_topography.Rmd", locally_run = locally_run)
+  ne_topo <- read_rmd("DataProcessing/ne01_topography.Rmd", locally_run = locally_run)
 
-  nep_rmd_t <- c(nep_rmd, ne01)
+  nep_rmd_t <- c(nep_rmd, ne_topo)
 
   # /*+++++++++++++++++++++++++++++++++++
   #' ## SSURGO data
   # /*+++++++++++++++++++++++++++++++++++
-  ne02 <- read_rmd("DataProcessing/ne02_ssurgo.Rmd", locally_run = locally_run)
+  ne_ssurgo <- read_rmd("DataProcessing/ne02_ssurgo.Rmd", locally_run = locally_run)
 
-  nep_rmd_ts <- c(nep_rmd_t, ne02)
+  nep_rmd_ts <- c(nep_rmd_t, ne_ssurgo)
 
-  #--- Weather data ---#
+  # /*+++++++++++++++++++++++++++++++++++
+  #' ## Weather data
+  # /*+++++++++++++++++++++++++++++++++++
   weather_file <- file.path(here("Data", "Growers", ffy), "Intermediate/weather_daymet.rds")
 
   ne_weather <- read_rmd("DataProcessing/ne03_weather.Rmd", locally_run = locally_run)
   
-  nep_rmd_tsw <- c(nep_rmd_ts, ne_weather)
-
-  #/*----------------------------------*/
-  #' ## Other external data collected by the researchers
-  #/*----------------------------------*/
-  ec_exists <- field_data[field_year == ffy, ec]
-  ec_raw_file <- file.path(here("Data", "Growers", ffy), "Raw/ec.shp")
-  ec_file <- file.path(here("Data", "Growers", ffy), "Intermediate/ec.rds")
-
-  if (!file.exists(ec_file)) {
-    ne04 <- read_rmd("DataProcessing/ne04_ec_show.Rmd", locally_run = locally_run)
-  } else {
-    if (ec_exists & file.exists(ec_raw_file)) {
-      ne04 <- read_rmd("DataProcessing/ne04_ec.Rmd", locally_run = locally_run)
-    } else {
-      # if ec.shp does not exist
-      print("This field either does not have EC data or EC data has not been uploaded in the right place")
-    }
-  }
-
-  nep_rmd_tswe <- c(nep_rmd_tsw, ne04) %>% 
+  nep_rmd_tsw <- c(nep_rmd_ts, ne_weather) %>% 
     gsub("field-year-here", ffy, .) %>% 
     gsub("title-here", "Non-experiment Data Processing Report", .)
 
   # /*----------------------------------*/
   #' ## Write out the rmd and render
   # /*----------------------------------*/
-  nep_report_rmd_file_name <- file.path(here(), "Data/Growers", ffy, "DataProcessingReport/dp_report_non_exp.Rmd")
+  nep_report_rmd_file_name <- here("Data/Growers", ffy, "DataProcessingReport/dp_report_non_exp.Rmd")
 
-  writeLines(nep_rmd_tswe, con = nep_report_rmd_file_name)
+  writeLines(nep_rmd_tsw, con = nep_report_rmd_file_name)
+
+  purl(
+    nep_report_rmd_file_name, 
+    output = 
+      here(
+        "Data/Growers",
+        ffy,
+        "DataProcessingReport/np_processing_debug.R"
+      )
+  )
 
   #--- render ---#
   render(nep_report_rmd_file_name)
@@ -1113,6 +1105,7 @@ get_trial_parameter <- function(ffy) {
 
   return(list(
     crop = crop,
+    year = w_year,
     n_base_rate = n_base_rate,
     yield_data = w_field_data$yield_data,
     tr_design_data = w_field_data$tr_data,
