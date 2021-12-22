@@ -88,7 +88,7 @@ mutate(
 **Base input rate**
 
 ```{r }
-n_base <- trial_pars$n_base_rate
+n_base <- trial_info$n_base_rate
 ```
 
 ## Data alignment checks
@@ -303,7 +303,7 @@ ggplot() +
 ### Flag unreliable observations
 
 ```{r }
-max_dev_dt <- max_dev_table[crop == trial_pars$crop, ]
+max_dev_dt <- max_dev_table[crop == trial_info$crop, ]
 #=== convert max_dev_table if in ha instead of ac ===#
 
 if(units == "metric"){
