@@ -23,13 +23,8 @@ non_exp_process_make_report <- function(ffy, rerun = FALSE, locally_run = FALSE)
     ) 
 
   if (!file.exists(td_file)) {
-    return(print("No trial design file exists."))
+    return(print("No trial design file exists. Please upload one."))
   }
-
-  # /*+++++++++++++++++++++++++++++++++++
-  #' ## Template
-  # /*+++++++++++++++++++++++++++++++++++
-  nep_rmd <- read_rmd("DataProcessing/data_processing_template.Rmd", locally_run = locally_run)
 
   if (rerun) {
     #--- remove cached files ---#
@@ -42,28 +37,8 @@ non_exp_process_make_report <- function(ffy, rerun = FALSE, locally_run = FALSE)
       unlink(recursive = TRUE)
   }
 
-  # /*+++++++++++++++++++++++++++++++++++
-  #' ## Topography data
-  # /*+++++++++++++++++++++++++++++++++++
-  ne_topo <- read_rmd("DataProcessing/ne01_topography.Rmd", locally_run = locally_run)
-
-  nep_rmd_t <- c(nep_rmd, ne_topo)
-
-  # /*+++++++++++++++++++++++++++++++++++
-  #' ## SSURGO data
-  # /*+++++++++++++++++++++++++++++++++++
-  ne_ssurgo <- read_rmd("DataProcessing/ne02_ssurgo.Rmd", locally_run = locally_run)
-
-  nep_rmd_ts <- c(nep_rmd_t, ne_ssurgo)
-
-  # /*+++++++++++++++++++++++++++++++++++
-  #' ## Weather data
-  # /*+++++++++++++++++++++++++++++++++++
-  weather_file <- file.path(here("Data", "Growers", ffy), "Intermediate/weather_daymet.rds")
-
-  ne_weather <- read_rmd("DataProcessing/ne03_weather.Rmd", locally_run = locally_run)
-  
-  nep_rmd_tsw <- c(nep_rmd_ts, ne_weather) %>% 
+  nep_rmd <- 
+    read_rmd("DataProcessing/get_ne_data.Rmd", locally_run = locally_run) %>%
     gsub("field-year-here", ffy, .) %>% 
     gsub("title-here", "Non-experiment Data Processing Report", .)
 
@@ -72,7 +47,7 @@ non_exp_process_make_report <- function(ffy, rerun = FALSE, locally_run = FALSE)
   # /*----------------------------------*/
   nep_report_rmd_file_name <- here("Data/Growers", ffy, "DataProcessingReport/dp_report_non_exp.Rmd")
 
-  writeLines(nep_rmd_tsw, con = nep_report_rmd_file_name)
+  writeLines(nep_rmd, con = nep_report_rmd_file_name)
 
   purl(
     nep_report_rmd_file_name, 

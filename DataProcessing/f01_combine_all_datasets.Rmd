@@ -27,7 +27,8 @@ yield_point <-
 
 ```{r , results = "hide", eval = topo_eval_here, echo = topo_eval_here}
 topo_values <-
-  readRDS("Intermediate/topography.rds") %>%
+  here("Data/Growers", ffy, "Intermediate/topography.rds") %>%
+  readRDS() %>%
   stars_to_stack() %>%
   exact_extract(., st_transform(yield_sf, st_crs(.))) %>%
   rbindlist(idcol = "rowid") %>%
@@ -45,7 +46,9 @@ yield_sf <- cbind(yield_sf, topo_values)
 ## SSURGO
 
 ```{r , results = "hide", eval = ssurgo_eval_here, echo = ssurgo_eval_here}
-ssurgo_sf <- readRDS("Intermediate/ssurgo.rds") %>%
+ssurgo_sf <- 
+  here("Data/Growers", ffy, "Intermediate/ssurgo.rds") %>%
+  readRDS() %>%
   st_transform(st_crs(yield_sf))
 
 ssurgo_values <- 
@@ -57,7 +60,7 @@ ssurgo_values <-
   .[,
     lapply(.SD, weighted.mean, w = area_pct),
     by = yield_id,
-    .SDcols = c("clay", "sand", "silt", "water_storage")
+    .SDcols = c("sandtotal_r", "silttotal_r", "claytotal_r", "awc_r", "om_r", "dbovendry_r")
   ]
 
 yield_sf <- left_join(yield_sf, ssurgo_values, by = "yield_id")

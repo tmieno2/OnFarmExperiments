@@ -243,6 +243,7 @@ boundary_sp <- as(boundary_sf, "Spatial")
 #--- download SSURGO ---#
 vars <- c("sandtotal_r", "silttotal_r", "claytotal_r", "awc_r", "om_r", "dbovendry_r")
 ssurgo_data <- get_ssurgo_props(boundary_sp, vars = vars)
+
 ```
 
 ## Visualize
@@ -251,7 +252,7 @@ ssurgo_data <- get_ssurgo_props(boundary_sp, vars = vars)
 lapply(
   vars,
   function(x) {
-    ssurgo_data %>%
+    copy(ssurgo_data) %>%
       setnames(x, "var") %>%
       ggplot(data = .) +
       geom_sf(aes(fill = var)) +

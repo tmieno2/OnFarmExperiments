@@ -147,7 +147,7 @@ tm_layout_to_add
 trd_polygons <-
   here(
     "Data/Growers", ffy, "TrialDesign",
-    paste0(trial_pars$tr_design_data, ".shp")
+    paste0(trial_info$tr_design_data, ".shp")
   ) %>%
   st_read()
 ```
