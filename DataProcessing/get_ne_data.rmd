@@ -1,0 +1,360 @@
+---
+title: "Non-experimental Data Processing Report"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+    toc_float:
+      collapsed: true
+    number_sections: true
+---
+
+<style type="text/css">
+
+body{ /* Normal  */
+      font-size: 20px;
+  }
+td {  /* Table  */
+  font-size: 16px;
+}
+h1.title {
+  font-size: 56px;
+}
+h1 { /* Header 1 */
+  font-size: 48px;
+}
+h2 { /* Header 2 */
+    font-size: 36px;
+}
+h3 { /* Header 3 */
+  font-size: 24px;
+}
+code.r{ /* Code block */
+    font-size: 16px;
+}
+</style>
+
+```{r setup, cache = F, echo = F}
+library(knitr)
+knitr::opts_chunk$set(
+  cache = FALSE,
+  echo = TRUE,
+  error = TRUE,
+  warning = FALSE,
+  cache.lazy = FALSE,
+  message = FALSE,
+  fig.width = 12,
+  fig.height = 12
+)
+```
+
+```{r packages, cache = FALSE}
+# === packages ===#
+library(raster)
+library(sf)
+library(here)
+library(ggplot2)
+library(tmap)
+library(patchwork)
+library(measurements)
+library(scam)
+library(parallel)
+library(future.apply)
+library(dplyr)
+library(tidyverse)
+library(modelsummary)
+library(jsonlite)
+library(data.table)
+library(exactextractr)
+library(future.apply)
+```
+
+```{r preparations, cache = F}
+source(
+  "https://github.com/tmieno2/OnFarmExperiments/blob/master/Functions/prepare.R?raw=TRUE",
+  local = TRUE
+)
+
+#--- github ---#
+source("https://raw.githubusercontent.com/brittanikedge/DIFM/main/Functions.R")
+
+#--- define field-year ---#
+ffy <- "field-year-here"
+
+#--- read the variable name dictionary ---#
+dictionary <-
+  fromJSON(
+    file.path(
+      here("Data", "CommonData"),
+      "variable_name_dictionary.json"
+    ),
+    flatten = TRUE
+  ) %>%
+  data.table()
+
+#--- define field parameters ---#
+trial_info <- get_trial_parameter(ffy)
+input_trial_data <- trial_info$input_data_trial
+```
+
+```{r set-root-dir}
+opts_knit$set(root.dir = here("Data", "Growers", ffy))
+```
+
+```{r map-layout, cache = TRUE}
+tm_layout_to_add <-
+  tm_layout(
+    legend.outside = "TRUE",
+    frame = FALSE,
+    legend.title.size = 2,
+    legend.text.size = 1.5
+  )
+```
+
+# Topography data
+
+## Download elevation data for the area of interest
+
+```{r }
+# === trial design file ===#
+boundary_sf <-
+  here(
+    "Data", "Growers", ffy, "TrialDesign",
+    paste0(get_trial_parameter(ffy)$tr_design_data, ".shp")
+  ) %>%
+  st_read() %>%
+  st_set_4326() %>%
+  st_transform_utm() %>%
+  st_bbox() %>%
+  st_as_sfc() %>%
+  st_as_sf()
+
+boundary_sp <- as(boundary_sf, "Spatial")
+
+dem <-
+  get_elev_raster(
+    boundary_sp,
+    clip = "locations",
+    z = 14
+  )
+
+# === visualization ===#
+tm_shape(dem) +
+  tm_raster()
+```
+
+## Calculate topographic variables
+
+### Slope and Aspect
+Use the `terrain()` function from raster to get slope and aspect:
+
+```{r }
+dem_sa <- terrain(dem, opt = c("slope", "aspect"))
+names(dem_sa) <- c("slope", "aspect")
+```
+
+### Curvature
+
+Use the `curvature()` function from spatialEco to get curvature:
+
+```{r }
+curv <- curvature(dem, s = 5)
+names(curv) <- "curv"
+```
+
+### TPI
+
+Use the `tpi()` function from the `spatialEco` to get terrain position index:
+
+```{r }
+tpi <- tpi(dem, s = 5)
+names(tpi) <- "tpi"
+```
+
+### TWI
+
+Use the `upslope.area()` function from the `dynatopmodel` to get terrain wetness index:
+
+```{r }
+contrib_area <- upslope.area(dem, atb = TRUE)
+twi <- contrib_area$atb
+names(twi) <- c("twi")
+```
+
+## Organize the datasets and save
+
+```{r }
+#--- Stack all the rasters together ---#
+topo <-
+  stack(dem, dem_sa, curv, twi, tpi) %>%
+  st_as_stars() %>%
+  split(3)
+
+#--- save the data ---#
+saveRDS(topo, here("Data", "Growers", ffy, "Intermediate/topography.rds"))
+```
+
+## Remove the original DEM files
+
+```{r eval = F}
+list.files("Raw", full.names = TRUE) %>%
+  .[str_detect(., "USGS")] %>%
+  unlink()
+```
+
+## Visualization of the data
+
+```{r }
+lapply(
+  names(topo),
+  function(x) {
+    tm_shape(topo[x, ]) +
+      tm_raster() +
+      tm_layout(
+        legend.title.size = 3
+      )
+  }
+)
+```
+
+# SSURGO data
+
+## Download SSURGO data for the area of interest
+
+```{r extra-package, cache = F}
+library(soilDB)
+```
+
+```{r }
+boundary_sf <-
+  here(
+    "Data", "Growers", ffy, "TrialDesign",
+    paste0(get_trial_parameter(ffy)$tr_design_data, ".shp")
+  ) %>%
+  st_read() %>%
+  st_set_4326() %>%
+  st_transform_utm() %>%
+  st_bbox() %>%
+  st_as_sfc() %>%
+  st_as_sf()
+
+boundary_sp <- as(boundary_sf, "Spatial")
+
+#--- download SSURGO ---#
+vars <- c("sandtotal_r", "silttotal_r", "claytotal_r", "awc_r", "om_r", "dbovendry_r")
+ssurgo_data <- get_ssurgo_props(boundary_sp, vars = vars)
+```
+
+## Visualize
+
+```{r }
+lapply(
+  vars,
+  function(x) {
+    ssurgo_data %>%
+      setnames(x, "var") %>%
+      ggplot(data = .) +
+      geom_sf(aes(fill = var)) +
+      scale_fill_gradient(name = x)
+  }
+)
+```
+
+## Save
+
+```{r }
+saveRDS(ssurgo_data, here("Data", "Growers", ffy, "Intermediate/ssurgo.rds"))
+```
+
+# Weather data
+
+## Download PRISM data for the area of interest
+
+```{r extra-package-weather, cache = F}
+library(daymetr)
+library(lubridate)
+```
+
+```{r }
+#--- get the boundary ---#
+boundary_sf <-
+  here(
+    "Data", "Growers", ffy, "TrialDesign",
+    paste0(get_trial_parameter(ffy)$tr_design_data, ".shp")
+  ) %>%
+  st_read() %>%
+  st_set_4326() %>%
+  st_transform_utm() %>%
+  st_bbox() %>%
+  st_as_sfc() %>%
+  st_as_sf()
+
+centroid <-
+  boundary_sf %>%
+  st_centroid() %>%
+  st_coordinates()
+
+if (trial_info$year == as.numeric(format(Sys.time(), "%Y"))) {
+  end_year <- trial_info$year - 1
+} else {
+  end_year <- trial_info$year
+}
+
+#--- download Daymet ---#
+# goes 20 years back from the current year
+temp_daymet <-
+  download_daymet(
+    lat = centroid[1, "Y"],
+    lon = centroid[1, "X"],
+    start = end_year - 20,
+    end = end_year
+  ) %>%
+  .$data %>%
+  data.table()
+```
+
+Go [here](https://daymet.ornl.gov/overview) and see the "Model Outputs and Data Products" for variable descriptions.
+
++ Day length (dayl,  s/day): Duration of the daylight period in seconds per day. This calculation is based on the period of the day during which the sun is above a hypothetical flat horizon
+
++ Precipitation (prcp,  mm/day): Daily total precipitation in millimeters per day, sum of all forms converted to water-equivalent. Precipitation occurrence on any given day may be ascertained.
+
++ Shortwave radiation (srad, W/m2): Incident shortwave radiation flux density in watts per square meter, taken as an average over the daylight period of the day. NOTE: Daily total radiation (MJ/m2/day) can be calculated as follows: ((srad (W/m2) * dayl (s/day)) / l,000,000)
+
++ Snow water equivalent (swe, kg/m2): Snow water equivalent in kilograms per square meter. The amount of water contained within the snowpack.
+
++ Maximum air temperature (tmax, degrees C): Daily maximum 2-meter air temperature in degrees Celsius.
+
++ Minimum air temperature (tmin, degrees C): Daily minimum 2-meter air temperature in degrees Celsius.
+
++ Water vapor pressure (vp, Pa): Water vapor pressure in pascals. Daily average partial pressure of water vapor.
+
+```{r }
+temp_daymet <-
+  temp_daymet %>%
+  setnames(
+    names(.)[-c(1, 2)],
+    c(
+      "day_length",
+      "precipitation",
+      "solar_radiation",
+      "shortwave_radiation",
+      "tmax",
+      "tmin",
+      "vapor_pressure"
+    )
+  ) %>%
+  .[, date := as.Date(paste(year, yday, sep = "-"), "%Y-%j")] %>%
+  .[, `:=`(
+    month = month(date),
+    day = day(date)
+  )]
+```
+
+## Save
+
+```{r }
+saveRDS(temp_daymet, "Intermediate/weather_daymet.rds")
+```
+
+
