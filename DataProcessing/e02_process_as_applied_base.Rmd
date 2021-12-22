@@ -22,7 +22,7 @@ aa_input <-
   st_set_4326() %>%
   st_transform_utm() %>%
   setnames(names(.), tolower(names(.))) %>%
-  mutate(id = 1:nrow(.))
+  mutate(aa_id = 1:nrow(.))
 
 is_aa_input_polygon <- any(st_geometry_type(aa_input) == "POLYGON")
 
@@ -72,7 +72,7 @@ aa_input <- make_var_name_consistent(
 aa_input <-
   dplyr::select(
     aa_input,
-    matches(c(col_list, "id"))
+    matches(c(col_list, "aa_id"))
   )
 ```
 
@@ -286,9 +286,9 @@ aa_input_trd <-
   #* identify which yield point falls in which treatment block
   st_join(aa_input_grouped, trd_polygons) %>%
   #* order by yield id
-  arrange(id) %>%
+  arrange(aa_id) %>%
   data.table() %>%
-  .[, .(id, group, Trt, Rep, input_rate, geometry)] %>%
+  .[, .(aa_id, group, Trt, Rep, input_rate, geometry)] %>%
   #* flag outliers by treatment block
   nest_by(Trt, Rep, group) %>%
   mutate(median_input_rate =
@@ -302,11 +302,11 @@ aa_input_trd <-
   )) %>%
   unnest() %>%
   data.table() %>%
-  .[, .(id, Trt, Rep, ol_input_rate)]
+  .[, .(aa_id, Trt, Rep, ol_input_rate)]
 
 #* join with aa_input_grouped
 aa_input_grouped <-
-  left_join(aa_input_grouped, aa_input_trd, by = "id")
+  left_join(aa_input_grouped, aa_input_trd, by = "aa_id")
 ```
 
 **Show the points that are flagged as outliers**
