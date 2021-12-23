@@ -494,8 +494,8 @@ yield_polygons <-
   filter(!st_is_empty(.)) %>%
   mutate(yield_overlap = ifelse(
     yield_id %in% overlap_id_ls,
-    TRUE,
-    FALSE
+    1,
+    0
   )) %>%
   dplyr::select(
     -yield_mass, -distance, -angle, -width, -time, -offset,
