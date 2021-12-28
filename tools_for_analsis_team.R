@@ -37,7 +37,11 @@ make_data_report()
 # lapply(field_year_ls, non_exp_process_make_report)
 
 #--- individually ---#
-non_exp_process_make_report(field_year_ls[1], rerun = TRUE)
+get_ne_data(
+  field_year_ls[2], 
+  rerun = TRUE,
+  locally_run = TRUE
+)
 
 # /*----------------------------------*/
 #' ## Experiment Data
@@ -47,7 +51,7 @@ non_exp_process_make_report(field_year_ls[1], rerun = TRUE)
 
 #--- individually ---#
 exp_process_make_report(
-  ffy = field_year_ls[1],
+  ffy = field_year_ls[2],
   rerun = TRUE,
   locally_run = TRUE
 )

@@ -46,7 +46,7 @@ knitr::opts_chunk$set(
   warning = FALSE,
   cache.lazy = FALSE,
   message = FALSE,
-  fig.width = 12, 
+  fig.width = 12,
   fig.height = 12
 )
 ```
@@ -61,6 +61,7 @@ library(tmap)
 library(patchwork)
 library(measurements)
 library(scam)
+library(stars)
 library(parallel)
 library(future.apply)
 library(dplyr)
@@ -82,7 +83,7 @@ source(
 source("https://raw.githubusercontent.com/brittanikedge/DIFM/main/Functions.R")
 
 #--- define field-year ---#
-ffy <- "field-year-here"  
+ffy <- "field-year-here"
 
 #--- read the variable name dictionary ---#
 dictionary <-
@@ -92,7 +93,7 @@ dictionary <-
       "variable_name_dictionary.json"
     ),
     flatten = TRUE
-  ) %>% 
+  ) %>%
   data.table()
 
 #--- define field parameters ---#
@@ -108,7 +109,7 @@ opts_knit$set(root.dir = here("Data", "Growers", ffy))
 ```
 
 ```{r map-layout, cache = TRUE}
-tm_layout_to_add <- 
+tm_layout_to_add <-
   tm_layout(
     legend.outside = "TRUE",
     frame = FALSE,

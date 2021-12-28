@@ -149,7 +149,8 @@ trd_polygons <-
     "Data/Growers", ffy, "TrialDesign",
     paste0(trial_info$tr_design_data, ".shp")
   ) %>%
-  st_read()
+  st_read() %>%
+  mutate(treat_id  = 1:nrow(.))
 ```
 
 **Visualization**
@@ -170,7 +171,7 @@ yield_trd <-
   #* order by yield id
   arrange(yield_id) %>%
   data.table() %>%
-  .[, .(yield_id, group, Trt, Rep, yield_vol, geometry)] %>%
+  .[, .(yield_id, group, treat_id, Trt, Rep, PlotNum, yield_vol, geometry)] %>%
   #* flag outliers by treatment block
   nest_by(Trt, Rep) %>%
   mutate(data = list(

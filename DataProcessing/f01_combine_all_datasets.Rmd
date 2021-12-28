@@ -5,9 +5,8 @@
 ```{r }
 #--- yield ---#
 yield_sf <-
-  here("Data/Growers", ffy, "Intermediate/yield_polygons.rds") %>% 
+  here("Data/Growers", ffy, "Intermediate/yield_input_data.rds") %>%
   readRDS()
-
 ```
 
 ```{r}
@@ -25,33 +24,36 @@ yield_point <-
 
 ## Topography
 
-```{r , results = "hide", eval = topo_eval_here, echo = topo_eval_here}
-topo_values <-
+```{r , results = "hide"}
+topo_stars <-
   here("Data/Growers", ffy, "Intermediate/topography.rds") %>%
-  readRDS() %>%
+  readRDS()
+
+topo_values <-
+  topo_stars %>%
   stars_to_stack() %>%
   exact_extract(., st_transform(yield_sf, st_crs(.))) %>%
   rbindlist(idcol = "rowid") %>%
   .[,
     lapply(.SD, weighted.mean, w = coverage_fraction),
     by = rowid,
-    .SDcols = paste0("layer.", 1:length(topo))
+    .SDcols = paste0("layer.", 1:length(topo_stars))
   ] %>%
   .[, rowid := NULL] %>%
-  setnames(names(.), names(topo))
+  setnames(names(.), names(topo_stars))
 
 yield_sf <- cbind(yield_sf, topo_values)
 ```
 
 ## SSURGO
 
-```{r , results = "hide", eval = ssurgo_eval_here, echo = ssurgo_eval_here}
-ssurgo_sf <- 
+```{r , results = "hide"}
+ssurgo_sf <-
   here("Data/Growers", ffy, "Intermediate/ssurgo.rds") %>%
   readRDS() %>%
   st_transform(st_crs(yield_sf))
 
-ssurgo_values <- 
+ssurgo_values <-
   dplyr::select(yield_sf, yield_id) %>%
   st_intersection(., ssurgo_sf) %>%
   mutate(area = as.numeric(st_area(.))) %>%
@@ -64,6 +66,7 @@ ssurgo_values <-
   ]
 
 yield_sf <- left_join(yield_sf, ssurgo_values, by = "yield_id")
+
 ```
 
 ## Rx
@@ -95,7 +98,6 @@ ex_data <-
   mutate(data = list(
     st_read(here("Data/Growers", ffy, "Raw", file))
   ))
-
 ```
 
 

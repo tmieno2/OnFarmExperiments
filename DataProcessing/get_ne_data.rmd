@@ -1,5 +1,5 @@
 ---
-title: "Non-experimental Data Processing Report"
+title: "Report for Non-experimental Data: Topography, SSURGO, Weather, and Others"
 output:
   html_document:
     toc: true
@@ -59,6 +59,8 @@ library(patchwork)
 library(measurements)
 library(scam)
 library(parallel)
+library(stars)
+library(elevatr)
 library(future.apply)
 library(dplyr)
 library(tidyverse)
@@ -292,6 +294,7 @@ boundary_sf <-
 
 centroid <-
   boundary_sf %>%
+  st_transform(4326) %>%
   st_centroid() %>%
   st_coordinates()
 
@@ -355,7 +358,8 @@ temp_daymet <-
 ## Save
 
 ```{r }
-saveRDS(temp_daymet, "Intermediate/weather_daymet.rds")
+saveRDS(temp_daymet, here("Data", "Growers", ffy, "Intermediate/weather_daymet.rds"))
 ```
+
 
 
