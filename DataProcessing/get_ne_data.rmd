@@ -143,6 +143,7 @@ dem <-
 # === visualization ===#
 tm_shape(dem) +
   tm_raster()
+
 ```
 
 ## Calculate topographic variables
@@ -191,6 +192,8 @@ topo <-
   stack(dem, dem_sa, curv, twi, tpi) %>%
   st_as_stars() %>%
   split(3)
+
+names(topo)[1] <- "elevation"
 
 #--- save the data ---#
 saveRDS(topo, here("Data", "Growers", ffy, "Intermediate/topography.rds"))

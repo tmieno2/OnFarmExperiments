@@ -8,7 +8,7 @@ source(
 )
 
 #--- field parameter data ---#
-field_data <- 
+field_data <-
   jsonlite::fromJSON(
     file.path(
       here("Data", "CommonData"),
@@ -38,7 +38,7 @@ make_data_report()
 
 #--- individually ---#
 get_ne_data(
-  field_year_ls[2], 
+  ffy = field_year_ls[1],
   rerun = TRUE,
   locally_run = TRUE
 )
@@ -51,7 +51,7 @@ get_ne_data(
 
 #--- individually ---#
 exp_process_make_report(
-  ffy = field_year_ls[2],
+  ffy = field_year_ls[1],
   rerun = TRUE,
   locally_run = TRUE
 )
@@ -64,7 +64,7 @@ exp_process_make_report(
 
 #--- individually ---#
 f_process_make_report(
-  ffy = field_year_ls[2],
+  ffy = field_year_ls[1],
   rerun = TRUE
 )
 
@@ -100,8 +100,7 @@ make_grower_report(
 # render("/Users/tmieno2/Box/DIFM_Central/Reports/Growers/Scheider_Roby_2019/grower-report_DSB.Rmd")
 
 here(
-  "Reports/Growers", ffy, 
+  "Reports/Growers", ffy,
   paste0("grower-report-s.Rmd")
-) %>% 
-render()
-
+) %>%
+  render()

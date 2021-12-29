@@ -5,9 +5,9 @@
 # /*=================================================*/
 #' # Preparation
 # /*=================================================*/
-#/*----------------------------------*/
+# /*----------------------------------*/
 #' ## Load packages and source functions
-#/*----------------------------------*/
+# /*----------------------------------*/
 source(
   "https://github.com/tmieno2/OnFarmExperiments/blob/master/Functions/prepare.R?raw=TRUE",
   local = TRUE
@@ -24,15 +24,15 @@ field_data <-
   data.table() %>%
   .[, field_year := paste(farm, field, year, sep = "_")]
 
-#/*=================================================*/
+# /*=================================================*/
 #' # Create new field parameter entries
-#/*=================================================*/
+# /*=================================================*/
 #--- create an field parameter entry for a farm-field-year ---#
 initiate_fp_entry(
   farm = "MMUR",
   field = "1",
   year = 2021,
-  crop  = "wheat",
+  crop = "wheat",
   json_file = "metadata"
 )
 
@@ -55,9 +55,9 @@ add_inputs(
   strategy_ls = c("base", "trial", "trial")
 )
 
-#/*----------------------------------*/
+# /*----------------------------------*/
 #' ## Add Rx information
-#/*----------------------------------*/
+# /*----------------------------------*/
 Rx_data <-
   data.table(
     form = c("MAP", "UREA32"),
@@ -74,14 +74,15 @@ add_Rx(
   Rx_data = Rx_data
 )
 
-#/*----------------------------------*/
+# /*----------------------------------*/
 #' ## Add Ex information
-#/*----------------------------------*/
+# /*----------------------------------*/
 Ex_data <-
   data.table(
     data_type = c("NDRE"),
     file = c("21_BROB_W_SN_SRO.shp"),
-    date = c("04/02/2021")
+    date = c("04/02/2021"),
+    vars = list(c("NDVI", "Tgt_Rate_N"))
   )
 
 add_Ex(
@@ -115,5 +116,3 @@ add_Ex(
 # .[, field_year := paste(farm, field, year, sep = "_")]
 
 # make_grower_folders(field_data)
-
-

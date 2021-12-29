@@ -1,18 +1,18 @@
 ######################################
 # Collection of functions for organizing data
 ######################################
-#/*=================================================*/
-#' # Make data availability check  
-#/*=================================================*/
+# /*=================================================*/
+#' # Make data availability check
+# /*=================================================*/
 make_data_report <- function() {
   temp <- read_rmd("DataProcessing/data_availability_check.Rmd")
   writeLines(temp, con = here("Reports/ProjectTeam/data_availability_check.Rmd"))
   render(here("Reports/ProjectTeam/data_availability_check.Rmd"))
 }
 
-#/*=================================================*/
+# /*=================================================*/
 #' # Create Grower Data Folders
-#/*=================================================*/
+# /*=================================================*/
 
 make_grower_folders <- function(field_data) {
 
@@ -21,9 +21,8 @@ make_grower_folders <- function(field_data) {
   # ffy <- field_year_ls[[2]]
 
   make_indiv_growers_folder <- function(ffy) {
+    root_dir <- paste0(here(), "/Data/Growers/", ffy)
 
-    root_dir <- paste0(here(), "/Data/Growers/", ffy) 
-    
     #--- Parent ---#
     dir.create(root_dir)
 
@@ -41,30 +40,26 @@ make_grower_folders <- function(field_data) {
     #--- Reports ---#
     dir.create(paste0(here(), "/Reports/Growers/", ffy))
 
-    #=== copy the word template for reports ===#
+    # === copy the word template for reports ===#
     # file.copy(
     #   here("Data/CommonData/word_template.docx"),
     #   paste0(here(), "/Reports/Growers/", ffy)
-    # ) 
-
+    # )
   }
 
   lapply(field_year_ls, make_indiv_growers_folder)
-
 }
 
-#/*=================================================*/
+# /*=================================================*/
 #' # Create DataRequest Folders
-#/*=================================================*/
+# /*=================================================*/
 
 make_td_folders <- function(field_data) {
+  w_year <- Sys.Date() %>% year()
 
-  w_year <- Sys.Date() %>% year() 
+  field_year_ls <- field_data[year == w_year, ]$field_year
 
-  field_year_ls <- field_data[year == w_year, ]$field_year 
-  
   make_indiv_folders <- function(ffy) {
-
     root_dir <- paste0(here(), "/Data/DataRequest/", ffy)
 
     if (!file.exists(root_dir)) {
@@ -72,19 +67,16 @@ make_td_folders <- function(field_data) {
       #--- Parent ---#
       dir.create(root_dir)
     }
-
   }
 
   lapply(field_year_ls, make_indiv_folders)
-
 }
 
-#/*=================================================*/
+# /*=================================================*/
 #' # Create a new entry with input data
-#/*=================================================*/
+# /*=================================================*/
 
 gen_fp_template <- function(farm, field, year, crop, input_ls, strategy_ls, json_file = NULL) {
-
   temp_data <- data.table(
     trial_supervisor = "supervisor name",
     researcher = "institution name (e.g., UIUC, UMT, LSU)",
@@ -105,12 +97,11 @@ gen_fp_template <- function(farm, field, year, crop, input_ls, strategy_ls, json
     trial_notes = "true or false (no double quotes needed)"
   )
 
-  # i <- 1  
-  for (i in seq_len(length(input_ls))){
-
-    if (strategy_ls[i] == "trial"){
+  # i <- 1
+  for (i in seq_len(length(input_ls))) {
+    if (strategy_ls[i] == "trial") {
       #--- if trial data ---#
-      if (input_ls[i] == "seed"){
+      if (input_ls[i] == "seed") {
         #--- if seed ---#
         temp_input_data <- data.table(
           form = "seed",
@@ -156,12 +147,11 @@ gen_fp_template <- function(farm, field, year, crop, input_ls, strategy_ls, json
         unit = "gallons, lbs, Mg, kg, bales",
         price = "numeric (no double quotes needed)",
         date = "mm/dd/yyyy",
-        rate = "numeric (no double quotes needed)" 
+        rate = "numeric (no double quotes needed)"
       )
     }
 
-    eval(parse(text=paste("temp_data[, input.", i , ":= list(temp_input_data)]", sep = "")))
-
+    eval(parse(text = paste("temp_data[, input.", i, ":= list(temp_input_data)]", sep = "")))
   }
 
   if (!is.null(json_file)) {
@@ -172,14 +162,14 @@ gen_fp_template <- function(farm, field, year, crop, input_ls, strategy_ls, json
       ),
       flatten = TRUE
     ) %>%
-    data.table() 
+      data.table()
     temp_data <- rbind(existing_data, temp_data, fill = TRUE)
   } else {
     json_file <- "fp_template"
   }
 
   jsonlite::write_json(
-    temp_data, 
+    temp_data,
     file.path(
       here("Data", "CommonData"),
       json_file
@@ -189,9 +179,9 @@ gen_fp_template <- function(farm, field, year, crop, input_ls, strategy_ls, json
 }
 
 
-#/*----------------------------------*/
+# /*----------------------------------*/
 #' ## Example
-#/*----------------------------------*/
+# /*----------------------------------*/
 # gen_fp_template(
 #   farm = "Paul",
 #   field = "UIUC",
@@ -202,14 +192,13 @@ gen_fp_template <- function(farm, field, year, crop, input_ls, strategy_ls, json
 #   fp_file = "fp_new_DSB.json"
 # )
 
-#/*=================================================*/
-#' # Initiate field parameter entries for a farm-field-year 
-#/*=================================================*/
+# /*=================================================*/
+#' # Initiate field parameter entries for a farm-field-year
+# /*=================================================*/
 # This function add new field parameter templates WITHOUT input data
 # for a specified field
 
 initiate_fp_entry <- function(farm, field, year, crop, json_file = NULL) {
-  
   temp_data <- data.table(
     trial_supervisor = "supervisor name",
     researcher = "institution name (e.g., UIUC, UMT, LSU)",
@@ -236,14 +225,14 @@ initiate_fp_entry <- function(farm, field, year, crop, json_file = NULL) {
       ),
       flatten = TRUE
     ) %>%
-    data.table() 
+      data.table()
     temp_data <- rbind(existing_data, temp_data, fill = TRUE)
   } else {
     json_file <- "fp_template"
   }
 
   jsonlite::write_json(
-    temp_data, 
+    temp_data,
     file.path(
       here("Data", "CommonData"),
       paste0(json_file, ".json")
@@ -252,9 +241,9 @@ initiate_fp_entry <- function(farm, field, year, crop, json_file = NULL) {
   )
 }
 
-#/*----------------------------------*/
+# /*----------------------------------*/
 #' ## Example
-#/*----------------------------------*/
+# /*----------------------------------*/
 # initiate_fp_entry(
 #   farm = "Paul",
 #   field = "UIUC",
@@ -262,23 +251,22 @@ initiate_fp_entry <- function(farm, field, year, crop, json_file = NULL) {
 #   json_file = "field_parameter_example.json"
 # )
 
-#/*=================================================*/
+# /*=================================================*/
 #' # Add inputs to the template
-#/*=================================================*/
-# Note: this code adds input data to an existing farm-field-year in 
+# /*=================================================*/
+# Note: this code adds input data to an existing farm-field-year in
 # an existing field parameter file
 
 
 add_inputs <- function(json_file, farm, field, year, input_ls, product_ls, strategy_ls) {
-
   ffy <- paste(farm, field, year, sep = "_")
 
-  existing_data <-  
-    here("Data", "CommonData", json_file) %>% 
+  existing_data <-
+    here("Data", "CommonData", json_file) %>%
     jsonlite::fromJSON(., flatten = TRUE) %>%
-    data.table() %>% 
+    data.table() %>%
     .[, field_year := paste(farm, field, year, sep = "_")]
-  
+
   w_data <- existing_data[field_year == ffy, ]
 
   if (nrow(w_data) != 1) {
@@ -291,21 +279,20 @@ add_inputs <- function(json_file, farm, field, year, input_ls, product_ls, strat
   if (length(input_ls) != length(strategy_ls)) {
     print(
       "The number of elements provided to input_ls and stratefy_ls do not match."
-    ) 
+    )
     break
   }
 
-  input_data <- dplyr::select(w_data, starts_with("input.")) %>% 
-    lapply(., function(x) x[[1]]) %>% 
+  input_data <- dplyr::select(w_data, starts_with("input.")) %>%
+    lapply(., function(x) x[[1]]) %>%
     rbindlist(fill = TRUE)
 
   for (i in seq_len(length(input_ls))) {
-
     input_num <- nrow(input_data) + i
 
-    if (strategy_ls[i] == "trial"){
+    if (strategy_ls[i] == "trial") {
       #--- if trial data ---#
-      if (input_ls[i] == "seed"){
+      if (input_ls[i] == "seed") {
         #--- if seed ---#
         temp_input_data <- data.table(
           form = "seed",
@@ -351,7 +338,7 @@ add_inputs <- function(json_file, farm, field, year, input_ls, product_ls, strat
         unit = "gallons, lbs, Mg, kg, bales",
         price = "numeric (no double quotes needed)",
         date = "mm/dd/yyyy",
-        rate = "numeric (no double quotes needed)" 
+        rate = "numeric (no double quotes needed)"
       )
     } else {
       print(
@@ -360,32 +347,30 @@ add_inputs <- function(json_file, farm, field, year, input_ls, product_ls, strat
       break
     }
 
-    eval(parse(text=paste("w_data[, input.", input_num , ":= list(temp_input_data)]", sep = "")))
-
+    eval(parse(text = paste("w_data[, input.", input_num, ":= list(temp_input_data)]", sep = "")))
   }
 
   out_data <- rbind(
     existing_data[field_year != ffy, ],
     w_data,
     fill = TRUE
-  ) %>% 
-  .[order(field_year),] %>% 
-  .[, field_year := NULL]
+  ) %>%
+    .[order(field_year), ] %>%
+    .[, field_year := NULL]
 
   jsonlite::write_json(
-    out_data, 
+    out_data,
     file.path(
       here("Data", "CommonData"),
       json_file
     ),
     pretty = TRUE
   )
-
 }
 
-#/*----------------------------------*/
+# /*----------------------------------*/
 #' ## Example
-#/*----------------------------------*/
+# /*----------------------------------*/
 # add_inputs(
 #   json_file = "field_parameter_example.json",
 #   farm = "DodsonAg",
@@ -395,9 +380,9 @@ add_inputs <- function(json_file, farm, field, year, input_ls, product_ls, strat
 #   strategy_ls = c("trial", "base")
 # )
 
-#/*=================================================*/
+# /*=================================================*/
 #' # Add Rx (prescription from commercial software) data
-#/*=================================================*/
+# /*=================================================*/
 # Rx_data <-
 #   data.table(
 #     form = c("MAP", "UREA32"),
@@ -407,15 +392,14 @@ add_inputs <- function(json_file, farm, field, year, input_ls, product_ls, strat
 #   )
 
 add_Rx <- function(json_file, farm, field, year, Rx_data) {
-
   ffy <- paste(farm, field, year, sep = "_")
 
-  existing_data <-  
-    here("Data", "CommonData", json_file) %>% 
+  existing_data <-
+    here("Data", "CommonData", json_file) %>%
     jsonlite::fromJSON(., flatten = TRUE) %>%
-    data.table() %>% 
+    data.table() %>%
     .[, field_year := paste(farm, field, year, sep = "_")]
-    
+
   w_data <- existing_data[field_year == ffy, ]
 
   if (nrow(w_data) != 1) {
@@ -425,74 +409,70 @@ add_Rx <- function(json_file, farm, field, year, Rx_data) {
     break
   }
 
-  existing_Rx_data <- 
-    dplyr::select(w_data, starts_with("Rx.")) %>% 
-    lapply(., function(x) x[[1]]) %>% 
+  existing_Rx_data <-
+    dplyr::select(w_data, starts_with("Rx.")) %>%
+    lapply(., function(x) x[[1]]) %>%
     rbindlist(fill = TRUE)
 
   for (i in seq_len(nrow(Rx_data))) {
-
     temp_Rx_data <- Rx_data[i, ]
 
-    already_there <- 
+    already_there <-
       lapply(
         1:nrow(existing_Rx_data),
         function(x) identical(temp_Rx_data, existing_Rx_data[x, ])
-      ) %>% 
-      unlist() %>% 
+      ) %>%
+      unlist() %>%
       any()
 
     if (already_there) {
       print(temp_Rx_data)
-      print("You already have exactly the same Rx entry. Skipping") 
+      print("You already have exactly the same Rx entry. Skipping")
     } else {
-      #=== find the largest Rx. suffix number ===#
-      Rx_num_e <- 
-        dplyr::select(w_data, starts_with("Rx.")) %>% 
-        names() %>% 
-        gsub("Rx.", "", .) %>% 
-        as.numeric() %>% 
+      # === find the largest Rx. suffix number ===#
+      Rx_num_e <-
+        dplyr::select(w_data, starts_with("Rx.")) %>%
+        names() %>%
+        gsub("Rx.", "", .) %>%
+        as.numeric() %>%
         max()
       Rx_num <- Rx_num_e + 1
-      eval(parse(text=paste("w_data[, Rx.", Rx_num , ":= list(temp_Rx_data)]", sep = "")))
+      eval(parse(text = paste("w_data[, Rx.", Rx_num, ":= list(temp_Rx_data)]", sep = "")))
     }
-
   }
 
-  out_data <- 
+  out_data <-
     rbind(
       existing_data[field_year != ffy, ],
       w_data,
       fill = TRUE
-    ) %>% 
-    .[order(field_year),] %>% 
+    ) %>%
+    .[order(field_year), ] %>%
     .[, field_year := NULL]
 
   jsonlite::write_json(
-    out_data, 
+    out_data,
     file.path(
       here("Data", "CommonData"),
       json_file
     ),
     pretty = TRUE
   )
-
 }
 
-#/*=================================================*/
-#' # Add External Data 
-#/*=================================================*/
+# /*=================================================*/
+#' # Add External Data
+# /*=================================================*/
 
 add_Ex <- function(json_file, farm, field, year, Ex_data) {
-
   ffy <- paste(farm, field, year, sep = "_")
 
-  existing_data <-  
-    here("Data", "CommonData", json_file) %>% 
+  existing_data <-
+    here("Data", "CommonData", json_file) %>%
     jsonlite::fromJSON(., flatten = TRUE) %>%
-    data.table() %>% 
+    data.table() %>%
     .[, field_year := paste(farm, field, year, sep = "_")]
-    
+
   w_data <- existing_data[field_year == ffy, ]
 
   if (nrow(w_data) != 1) {
@@ -502,67 +482,73 @@ add_Ex <- function(json_file, farm, field, year, Ex_data) {
     break
   }
 
-  existing_Ex_data <- 
-    dplyr::select(w_data, starts_with("Ex.")) %>% 
-    lapply(., function(x) x[[1]]) %>% 
+  existing_Ex_data <-
+    dplyr::select(w_data, starts_with("Ex.")) %>%
+    lapply(., function(x) x[[1]]) %>%
     rbindlist(fill = TRUE)
 
   for (i in seq_len(nrow(Ex_data))) {
-
     temp_Ex_data <- Ex_data[i, ]
 
-    already_there <- 
-      lapply(
-        1:nrow(existing_Ex_data),
-        function(x) identical(temp_Ex_data[, data_type], existing_Ex_data[x, attribute])
-      ) %>% 
-      unlist() %>% 
-      any()
+    if (nrow(existing_Ex_data) > 0) {
+      already_there <-
+        lapply(
+          1:nrow(existing_Ex_data),
+          function(x) identical(temp_Ex_data[, file], existing_Ex_data[x, file])
+        ) %>%
+        unlist() %>%
+        any()
+    } else {
+      already_there <- FALSE
+    }
 
     if (already_there) {
       print(temp_Ex_data)
-      print("You already have exactly the Ex entry of the same data type. Skipping") 
+      print("You already have an entry that points to the same file name. Skipping.")
     } else {
-      #=== find the largest Rx. suffix number ===#
-      Ex_num_e <- 
-        dplyr::select(w_data, starts_with("Ex.")) %>% 
-        names() %>% 
-        gsub("Ex.", "", .) %>% 
-        as.numeric() %>% 
-        max()
-      Ex_num <- Ex_num_e + 1
-      eval(parse(text=paste("w_data[, Ex.", Ex_num , ":= list(temp_Ex_data)]", sep = "")))
-    }
+      # === find the largest Rx. suffix number ===#
+      ex_data <- dplyr::select(w_data, starts_with("Ex."))
 
+      if (nrow(ex_data) == 0) {
+        Ex_num <- 1
+      } else {
+        Ex_num_e <-
+          names() %>%
+          gsub("Ex.", "", .) %>%
+          as.numeric() %>%
+          max()
+        Ex_num <- Ex_num_e + 1
+      }
+
+      eval(parse(text = paste("w_data[, Ex.", Ex_num, ":= list(temp_Ex_data)]", sep = "")))
+    }
   }
 
-  out_data <- 
+  out_data <-
     rbind(
       existing_data[field_year != ffy, ],
       w_data,
       fill = TRUE
-    ) %>% 
-    .[order(field_year),] %>% 
+    ) %>%
+    .[order(field_year), ] %>%
     .[, field_year := NULL]
 
   jsonlite::write_json(
-    out_data, 
+    out_data,
     file.path(
       here("Data", "CommonData"),
       json_file
     ),
     pretty = TRUE
   )
-
 }
 
 
-#/*=================================================*/
+# /*=================================================*/
 #' # Add a variable to a field parameter json file
-#/*=================================================*/
+# /*=================================================*/
 
 add_var_to_fp <- function(file_name, var_name, var_value = NULL, overwrite = FALSE) {
-
   field_data <- jsonlite::fromJSON(
     file.path(
       here("Data", "CommonData"),
@@ -570,8 +556,8 @@ add_var_to_fp <- function(file_name, var_name, var_value = NULL, overwrite = FAL
     ),
     flatten = TRUE
   ) %>%
-  data.table() %>%
-  .[, field_year := paste(farm, field, year, sep = "_")] 
+    data.table() %>%
+    .[, field_year := paste(farm, field, year, sep = "_")]
 
   if (!var_name %in% names(field_data)) {
     if (!is.null(var_value)) {
@@ -585,7 +571,7 @@ add_var_to_fp <- function(file_name, var_name, var_value = NULL, overwrite = FAL
 
   if (overwrite == TRUE) {
     jsonlite::write_json(
-      field_data, 
+      field_data,
       file.path(
         here("Data", "CommonData"),
         file_name
@@ -596,27 +582,23 @@ add_var_to_fp <- function(file_name, var_name, var_value = NULL, overwrite = FAL
     cat("A new variable was added. Confirm this is indeed what you want. If so, use overwrite = TRUE option to overwrite the file.")
     return(field_data)
   }
-
 }
 
-#/*~~~~~~~~~~~~~~~~~~~~~~*/
+# /*~~~~~~~~~~~~~~~~~~~~~~*/
 #' ### Example
-#/*~~~~~~~~~~~~~~~~~~~~~~*/
+# /*~~~~~~~~~~~~~~~~~~~~~~*/
 #--- check the data with a new variable ---#
 # data_check <- add_var_to_fp(
-#   file_name = "field_parameter_example.json", 
-#   var_name = "new", 
+#   file_name = "field_parameter_example.json",
+#   var_name = "new",
 #   var_value = "temp",
 #   overwrite = FALSE
 # )
 
 #--- overwrite the file ---#
 # add_var_to_fp(
-#   file_name = "field_parameter_example.json", 
-#   var_name = "new", 
+#   file_name = "field_parameter_example.json",
+#   var_name = "new",
 #   var_value = "temp",
 #   overwrite = TRUE
 # )
-
-
-
