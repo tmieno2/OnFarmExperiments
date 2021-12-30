@@ -13,18 +13,16 @@ yield <-
     "Raw/yield-file-name-here.shp"
   ) %>%
   st_read() %>%
-  #=== this took effect only when crs is missing ===#
+  # === this took effect only when crs is missing ===#
   st_set_4326() %>%
   st_transform_utm() %>%
   setnames(names(.), tolower(names(.)))
-
 ```
 
 ```{r viz-yield-data}
 tm_shape(yield) +
   tm_dots() +
-tm_layout_to_add
-
+  tm_layout_to_add
 ```
 
 ## Various checks and consistency
@@ -32,8 +30,8 @@ tm_layout_to_add
 ### Change variable names
 
 ```{r Changing-variable-names}
-if("time" %in% names(yield) & "isotime" %in% names(yield)) {
-  yield <- dplyr::select(yield, - time)
+if ("time" %in% names(yield) & "isotime" %in% names(yield)) {
+  yield <- dplyr::select(yield, -time)
 }
 
 dict_yield <- dictionary[type == "yield", ]
@@ -48,10 +46,9 @@ yield <- dplyr::select(yield, matches(col_list)) %>%
   mutate(yield_id := 1:nrow(.)) %>%
   filter(!is.na(yield_vol))
 
-if("offset" %in% names(yield) == FALSE){
+if ("offset" %in% names(yield) == FALSE) {
   yield$offset <- 0
 }
-
 ```
 
 ### Order by time
@@ -74,17 +71,17 @@ dist_test <-
   .[, dif_X := c(0, diff(X))] %>%
   .[, dif_Y := c(0, diff(Y))] %>%
   #--- distance in meter ---#
-  .[, distance_r := sqrt(dif_X ^ 2 + dif_Y ^ 2)] %>%
+  .[, distance_r := sqrt(dif_X^2 + dif_Y^2)] %>%
   #--- dif in difference in meter and recorded distance ---#
   .[, dif_distance := abs(distance - distance_r)] %>%
   .[, dif_distance_conv := abs(conv_unit(distance, "ft", "m") - distance_r)]
 
 # we want to see if the converted units from ft to meter are closer to the distance measured in r
-if (mean(dist_test$dif_distance_conv, na.rm = TRUE) < mean(dist_test$dif_distance, na.rm = TRUE)){
+if (mean(dist_test$dif_distance_conv, na.rm = TRUE) < mean(dist_test$dif_distance, na.rm = TRUE)) {
   units <- "imperial"
-}else{
+} else {
   units <- "metric"
-  }
+}
 ```
 
 ### transform measurement unit
@@ -98,10 +95,9 @@ if (units == "imperial") {
       distance = conv_unit(distance, "ft", "m"),
       offset = conv_unit(offset, "ft", "m")
     )
-}else{
+} else {
   yield <- yield
 }
-
 ```
 
 ### save the yield point data
@@ -130,11 +126,10 @@ Red points are the points that are recognized for making a sharp turn from their
 
 ```{r }
 tm_shape(yield_grouped) +
-    tm_dots(col = "blue") +
-tm_shape(filter(yield_grouped, change_group == TRUE)) +
-    tm_dots(col = "red", size = 0.1) +
-tm_layout_to_add
-
+  tm_dots(col = "blue") +
+  tm_shape(filter(yield_grouped, change_group == TRUE)) +
+  tm_dots(col = "red", size = 0.1) +
+  tm_layout_to_add
 ```
 
 ## Intersect with the Trial Design and Flag Outliers by Treatment Block
@@ -150,12 +145,12 @@ trd_polygons <-
     paste0(trial_info$tr_design_data, ".shp")
   ) %>%
   st_read() %>%
-  mutate(treat_id  = 1:nrow(.))
+  mutate(treat_id = 1:nrow(.))
 ```
 
 **Visualization**
 ```{r }
-#=== vis ===#
+# === vis ===#
 tm_shape(trd_polygons) +
   tm_polygons(col = "Trt")
 ```
@@ -183,12 +178,11 @@ yield_trd <-
   )) %>%
   unnest() %>%
   data.table() %>%
-  .[, .(yield_id, Trt, Rep, ol_yield_vol)]
+  .[, .(yield_id, Trt, PlotNum, Rep, ol_yield_vol)]
 
 #* join with yield_grouped
 yield_grouped <-
   left_join(yield_grouped, yield_trd, by = "yield_id")
-
 ```
 
 **Show the yield points that are flagged as outliers**
@@ -204,12 +198,12 @@ tm_shape(yield_grouped) +
 ### Flag speed anomalies
 
 ```{r Flagging-outliers}
-#/*----------------------------------*/
+# /*----------------------------------*/
 #' ## Speed-based
-#/*----------------------------------*/
+# /*----------------------------------*/
 is_speed_available <- !all(is.na(yield_grouped$speed))
 
-if (is_speed_available){
+if (is_speed_available) {
   yield_grouped <-
     flag_bad_points(
       yield_grouped,
@@ -221,15 +215,14 @@ if (is_speed_available){
     yield_grouped %>%
     mutate(ol_speed = 0)
 }
-
 ```
 
 **Yield points flagged based on `speed`**
 
 ```{r }
 tm_shape(yield_grouped) +
-tm_dots(col = "ol_speed", style = "cat") +
-tm_layout_to_add
+  tm_dots(col = "ol_speed", style = "cat") +
+  tm_layout_to_add
 ```
 
 ### Identify yield points that are close to either the yield and speed outliers
@@ -247,29 +240,28 @@ close_to_ol_id <-
   )) %>%
   mutate(close_to_outliers = list(
     filter(data, ol_yield_vol == 0 & ol_speed == 0) %>%
-    dplyr::select(yield_id) %>%
-    st_join(., outliers) %>%
-    filter(!is.na(ol_yield_vol)) %>%
-    pull(yield_id) %>%
-    unique()
+      dplyr::select(yield_id) %>%
+      st_join(., outliers) %>%
+      filter(!is.na(ol_yield_vol)) %>%
+      pull(yield_id) %>%
+      unique()
   )) %>%
   pull(close_to_outliers) %>%
   reduce(c) %>%
   unique()
-
 ```
 
 **Create a variable that takes 1 if either an outlier or close-to-outliers**
 ```{r }
 yield_grouped <-
   yield_grouped %>%
-  mutate(drop_as_outliers =
-    ifelse(
-      yield_id %in% c(close_to_ol_id) | ol_yield_vol == 1 | ol_speed == 1,
-      1, 0
-    )
+  mutate(
+    drop_as_outliers =
+      ifelse(
+        yield_id %in% c(close_to_ol_id) | ol_yield_vol == 1 | ol_speed == 1,
+        1, 0
+      )
   )
-
 ```
 
 **Visualize the data points that are flagged to be dropped **
@@ -302,17 +294,16 @@ dt_dropped <-
   .[, type := "Dropped"]
 
 rbind(dt_before, dt_after, dt_dropped) %>%
-.[, type := factor(type, levels = c("Before", "After", "Dropped"))] %>%
-ggplot(data = .) +
-geom_histogram(
-  aes(x = yield_vol),
-  fill = "blue",
-  col = "black",
-  binwidth = 5,
-  alpha = 0.4
-) +
-facet_grid(type ~ .)
-
+  .[, type := factor(type, levels = c("Before", "After", "Dropped"))] %>%
+  ggplot(data = .) +
+  geom_histogram(
+    aes(x = yield_vol),
+    fill = "blue",
+    col = "black",
+    binwidth = 5,
+    alpha = 0.4
+  ) +
+  facet_grid(type ~ .)
 ```
 
 ## Flow delay correction
@@ -322,7 +313,6 @@ facet_grid(type ~ .)
 get_vg(data = yield_grouped, delay = 0)
 
 get_vg <- function(data, delay) {
-
   yield_for_shift <-
     data.table(data) %>%
     .[, .(yield_id, yield_vol, ol_yield_vol, ol_speed)]
@@ -339,7 +329,7 @@ get_vg <- function(data, delay) {
 
   yield_shifted_b <-
     copy(yield_shifted_a) %>%
-    #=== 10 seconds shift ===#
+    # === 10 seconds shift ===#
     .[, cum_travel_time := cum_travel_time - delay] %>%
     .[, .(yield_id, cum_travel_time)] %>%
     setnames("yield_id", "yield_id_b")
@@ -368,9 +358,7 @@ get_vg <- function(data, delay) {
     )
 
   return(temp_vg)
-
 }
-
 ```
 
 ## Yield data reduction when too dense
@@ -387,7 +375,7 @@ The following yield point reduction occurs when the medium distance between cons
 #--- number of observations per reduced group ---#
 # about 2 meter (many other yield data points have 2-meter gaps)
 
-if (med_distance < 1){
+if (med_distance < 1) {
   num_obs_rg <- floor(2 / (med_distance))
 
   yield_reduced_v <- reduce_points_v(
@@ -396,24 +384,19 @@ if (med_distance < 1){
     var_interest = "yield_vol",
     by_var = "group"
   )
-
 } else {
-
   yield_reduced_v <- data.table(yield_grouped)
-
 }
-
 ```
 
 ```{r }
 cat(
-  paste0("Before: ",  nrow(yield_grouped), " observations")
+  paste0("Before: ", nrow(yield_grouped), " observations")
 )
 
 cat(
-  paste0("After: ",  nrow(yield_reduced_v), " observations")
+  paste0("After: ", nrow(yield_reduced_v), " observations")
 )
-
 ```
 
 
@@ -429,9 +412,11 @@ all_polygons <-
     #--- list of groups to loop over ---#
     yield_reduced_v$group %>% unique(),
     #--- make polygons by group ---#
-    function(x) make_polygons(
-      filter(yield_reduced_v, group == x)
-    )
+    function(x) {
+      make_polygons(
+        filter(yield_reduced_v, group == x)
+      )
+    }
   ) %>%
   reduce(c) %>%
   st_as_sfc()
@@ -446,21 +431,20 @@ yield_sf <-
   mutate(area = as.numeric(st_area(.))) %>%
   filter(area <= median(area) * 3) %>%
   mutate(yield_id = 1:nrow(.))
-
 ```
 
 **Yield map before dropping outliers**
 ```{r }
 tm_shape(yield_sf) +
-tm_polygons(col = "yield_vol", lwd = 0.05) +
-tm_layout_to_add
+  tm_polygons(col = "yield_vol", lwd = 0.05) +
+  tm_layout_to_add
 ```
 
 **Yield map after dropping outliers**
 ```{r }
 tm_shape(filter(yield_sf, drop_as_outliers == 0)) +
-tm_polygons(col = "yield_vol", lwd = 0.05) +
-tm_layout_to_add
+  tm_polygons(col = "yield_vol", lwd = 0.05) +
+  tm_layout_to_add
 ```
 
 ## Flag polygons that went through previously visited parts of the field (overlap)
@@ -476,10 +460,10 @@ intersections <-
   data.table() %>%
   .[yield_id > yield_id.1, ] %>%
   .[, .(
-      int_area = sum(int_area),
-      area = mean(area)
-    ),
-    by = yield_id
+    int_area = sum(int_area),
+    area = mean(area)
+  ),
+  by = yield_id
   ]
 
 #--- find and flag the polygons that visited previously visited area ---#
@@ -503,7 +487,6 @@ yield_polygons <-
     -X, -Y, -original_order_id, -change_group, -group,
     -obs_per_group, -area
   )
-
 ```
 
 ```{r }
@@ -524,8 +507,7 @@ tm_shape(yield_polygons) +
   tm_borders(
     lwd = 0.3
   ) +
-tm_layout_to_add
-
+  tm_layout_to_add
 ```
 
 ## Save the data

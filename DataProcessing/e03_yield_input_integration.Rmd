@@ -432,6 +432,8 @@ viz$viz_deviation
 ```{r }
 saveRDS(yield_input_data, file = here("Data", "Growers", ffy, "Intermediate/yield_input_data.rds"))
 
+# yield_input_data <- readRDS(file = here("Data", "Growers", ffy, "Intermediate/yield_input_data.rds"))
+
 saveRDS(detailed_int_data, file = here("Data", "Growers", ffy, "DataProcessingReport/detailed_intersection_info.rds"))
 ```
 
