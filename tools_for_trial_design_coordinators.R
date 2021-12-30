@@ -54,7 +54,7 @@ add_inputs(
   input_ls = c("N_equiv", "UAN32", "UAN32"),
   product_ls = c("11520", "UAN32", "UAN32"),
   strategy_ls = c("base", "trial", "trial"),
-  var_name_prefix_ls = c(NA, "FA", "HF")
+  var_name_prefix_ls = c(NA, "FA1", "HF1")
 )
 
 # /*----------------------------------*/
