@@ -32,7 +32,7 @@ reduce_points_v <- function(data_sf, nobs_per_group, var_interest, ol_var_name, 
       .[, n_group := NULL] %>%
       setnames("group_var", by_var) %>%
       setnames("var_i", var_interest) %>%
-      setnames("flag_bad", ol_var_name) %>%
+      setnames("flag_bad", ol_var_name) 
   } else {
     data_dt <- data_sf %>%
       cbind(., st_coordinates(.)) %>%
