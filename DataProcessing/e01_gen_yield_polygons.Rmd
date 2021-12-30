@@ -388,6 +388,7 @@ if (med_distance < 1) {
     data_sf = yield_grouped,
     nobs_per_group = num_obs_rg,
     var_interest = "yield_vol",
+    ol_var_name = "drop_as_outliers"
     by_var = "group"
   )
 } else {

@@ -361,7 +361,14 @@ is_dense <- (med_distance_v * 2) < med_distance_yp
 if (is_dense) {
   num_obs_rg <- ceiling(2 / (med_distance_v))
 
-  aa_input_reduced_v <- reduce_points_v(aa_input_grouped, num_obs_rg, "input_rate", "new_group") %>%
+  aa_input_reduced_v <-
+    reduce_points_v(
+      data_sf = aa_input_grouped,
+      nobs_per_group = num_obs_rg,
+      var_interest = "input_rate",
+      ol_var_name = "ol_input_rate",
+      by_var = "new_group"
+    ) %>%
     # === remove observations that has only observation per new_group ===#
     .[, .SD[.N != 1, ], by = new_group]
 } else {
@@ -385,8 +392,7 @@ if (is_aa_input_polygon) { #* if as-applied rate is in polygon
     left_join(aa_input_poly, , by = "aa_id") %>%
     rename(aa_input_id = aa_id) %>%
     st_as_sf()
-
-} else { 
+} else {
   #--- prepare parallel computation ---#
   plan(multiprocess, workers = detectCores() - 2)
 
@@ -421,12 +427,7 @@ if (is_aa_input_polygon) { #* if as-applied rate is in polygon
 
 aa_input_sf <-
   aa_input_sf %>%
-  dplyr::select(
-    -new_group, -distance, -angle, -width, -time,
-    -speed, -offset, -sectionid, -X, -Y, -original_order_id,
-    -change_group, -group, -obs_per_group, -Trt,
-    -Rep
-  )
+  dplyr::select(aa_input_id, input_rate, ol_input_rate)
 ```
 
 ```{r }

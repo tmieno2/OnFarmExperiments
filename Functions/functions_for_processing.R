@@ -2,14 +2,14 @@
 #' # Vertical reduce (reduce in the direction the machine moves)
 # /*=================================================*/
 
-reduce_points_v <- function(data_sf, nobs_per_group, var_interest, by_var = NA) {
-  
+reduce_points_v <- function(data_sf, nobs_per_group, var_interest, ol_var_name, by_var = NA) {
   if (!is.na(by_var)) {
     data_dt <- data_sf %>%
       cbind(., st_coordinates(.)) %>%
       data.table() %>%
       setnames(var_interest, "var_i") %>%
       setnames(by_var, "group_var") %>%
+      setnames(ol_var_name, "flag_bad") %>%
       .[, dummy := 1] %>%
       .[, id_in_group := (cumsum(dummy) - 1) %/% nobs_per_group + 1, by = group_var] %>%
       #--- aggregate, but not using points that are flagged "bad" ---#
@@ -22,7 +22,7 @@ reduce_points_v <- function(data_sf, nobs_per_group, var_interest, by_var = NA) 
         # min_distance = min(distance),
         # max_distance = max(distance),
         # speed = mean(speed),
-        flag_bad = mean(flag_bad)
+        flag_bad = max(flag_bad)
       ),
       by = .(id_in_group, group_var)
       ] %>%
@@ -31,7 +31,8 @@ reduce_points_v <- function(data_sf, nobs_per_group, var_interest, by_var = NA) 
       .[n_group > 1, ] %>%
       .[, n_group := NULL] %>%
       setnames("group_var", by_var) %>%
-      setnames("var_i", var_interest)
+      setnames("var_i", var_interest) %>%
+      setnames("flag_bad", ol_var_name) %>%
   } else {
     data_dt <- data_sf %>%
       cbind(., st_coordinates(.)) %>%
@@ -192,7 +193,6 @@ drop_group_points_sc <- function(data_sf, by_var = NA) {
 # data_sf <- yield
 
 group_points_sc <- function(data_sf, by_var = NA, angle_threshold) {
-
   if (!is.na(by_var)) {
     setup_dt <- data_sf %>%
       cbind(., st_coordinates(.)) %>%
@@ -305,19 +305,18 @@ get_med_dist_sec <- function(data_sf) {
 # var_name <- "yield_vol"
 
 flag_bad_points <- function(data, var_name, sd_factor, suffix = NA, upper = FALSE) {
-
-  temp_data <- 
+  temp_data <-
     data.table(data) %>%
     setnames(var_name, "var")
 
-  var_sd <- 
+  var_sd <-
     temp_data[
       var >= quantile(var, prob = 0.05, na.rm = TRUE) & var <= quantile(var, prob = 0.95, na.rm = TRUE),
       .(median = median(var, na.rm = TRUE), sd = sd(var, na.rm = TRUE))
     ]
 
   if (upper == FALSE) {
-    temp_data <- 
+    temp_data <-
       temp_data %>%
       .[, flag_bad := 0] %>%
       .[
@@ -330,7 +329,7 @@ flag_bad_points <- function(data, var_name, sd_factor, suffix = NA, upper = FALS
       ] %>%
       setnames("var", var_name)
   } else {
-    temp_data <- 
+    temp_data <-
       temp_data %>%
       .[, flag_bad := 0] %>%
       .[
@@ -339,11 +338,11 @@ flag_bad_points <- function(data, var_name, sd_factor, suffix = NA, upper = FALS
       ] %>%
       setnames("var", var_name)
   }
-   
+
   if (is.na(suffix)) {
-    setnames(temp_data, "flag_bad", paste0("ol_", var_name))  
+    setnames(temp_data, "flag_bad", paste0("ol_", var_name))
   } else {
-    setnames(temp_data, "flag_bad", paste0("ol_", suffix))  
+    setnames(temp_data, "flag_bad", paste0("ol_", suffix))
   }
 
   if ("sf" %in% class(data)) {
@@ -351,7 +350,6 @@ flag_bad_points <- function(data, var_name, sd_factor, suffix = NA, upper = FALS
   } else {
     return(temp_data)
   }
-
 }
 
 # /*=================================================*/
@@ -675,37 +673,37 @@ get_polygons_by_group <- function(group_id, sf_point) {
   return(all_polygons)
 }
 
-#/*=================================================*/
+# /*=================================================*/
 #' # Recover sectionid
-#/*=================================================*/
-# data <- aa_input 
+# /*=================================================*/
+# data <- aa_input
 
 group_and_recover_section_id <- function(data) {
 
-  #=== define section group ===#
-  aa_dt <- data %>% 
-    cbind(., st_coordinates(.)) %>% 
-    data.table() %>% 
-    .[, dif_X := c(0, diff(X))] %>% 
-    .[, dif_Y := c(0, diff(Y))] %>%  
+  # === define section group ===#
+  aa_dt <- data %>%
+    cbind(., st_coordinates(.)) %>%
+    data.table() %>%
+    .[, dif_X := c(0, diff(X))] %>%
+    .[, dif_Y := c(0, diff(Y))] %>%
     #--- distance in meter ---#
-    .[, dist := sqrt(dif_X ^ 2 + dif_Y ^ 2)] %>% 
-    .[, dist_sec := median(dist)] %>% 
-    .[, change_in_group := !(dist < dist_sec * 1.1 & dist > dist_sec * 0.9)] %>% 
-    .[1, change_in_group := FALSE] %>% 
-    .[, section_group := cumsum(change_in_group) + 1] %>% 
+    .[, dist := sqrt(dif_X^2 + dif_Y^2)] %>%
+    .[, dist_sec := median(dist)] %>%
+    .[, change_in_group := !(dist < dist_sec * 1.1 & dist > dist_sec * 0.9)] %>%
+    .[1, change_in_group := FALSE] %>%
+    .[, section_group := cumsum(change_in_group) + 1] %>%
     .[, `:=`(
       dif_X = NULL,
       dif_Y = NULL,
       change_in_group = NULL,
       dist = NULL
-    )]  
+    )]
 
   dist_sec <- aa_dt[, dist_sec] %>% unique()
   angle_threshold <- 30
 
-  #=== strip grouping by group centroid ===# 
-  aa_strip_group <- aa_dt[, .(X = mean(X), Y = mean(Y)), by = section_group] %>% 
+  # === strip grouping by group centroid ===#
+  aa_strip_group <- aa_dt[, .(X = mean(X), Y = mean(Y)), by = section_group] %>%
     .[, d_X := c(0, diff(X))] %>%
     .[, d_Y := c(0, diff(Y))] %>%
     .[, distance := sqrt(d_X^2 + d_Y^2)] %>%
@@ -724,12 +722,12 @@ group_and_recover_section_id <- function(data) {
     .[1, change_group := TRUE] %>%
     .[, strip_group := cumsum(change_group)] %>%
     .[, obs_per_group := .N, by = strip_group] %>%
-    .[obs_per_group > 1, ] %>% 
+    .[obs_per_group > 1, ] %>%
     .[, .(section_group, strip_group, change_group)]
 
-  aa_sf_section_unidentified <- aa_strip_group[aa_dt, on = "section_group"] %>% 
-    .[section_group == 1, strip_group := 1] %>% 
-    .[!is.na(strip_group),] %>% 
+  aa_sf_section_unidentified <- aa_strip_group[aa_dt, on = "section_group"] %>%
+    .[section_group == 1, strip_group := 1] %>%
+    .[!is.na(strip_group), ] %>%
     setnames("dist_sec", "width")
 
   strip_groups_ls <- aa_sf_section_unidentified$strip_group %>% unique()
@@ -740,57 +738,54 @@ group_and_recover_section_id <- function(data) {
     strip_groups_ls,
     function(x) {
       recover_section_id_by_group(
-        aa_sf_section_unidentified, 
+        aa_sf_section_unidentified,
         x
       )
     }
-  ) %>% 
-  rbindlist()
+  ) %>%
+    rbindlist()
 
-  data_to_return <- section_id_data[aa_sf_section_unidentified, on = "id"] %>% 
-    .[, new_group := paste(strip_group, sectionid, sep = "_")] 
+  data_to_return <- section_id_data[aa_sf_section_unidentified, on = "id"] %>%
+    .[, new_group := paste(strip_group, sectionid, sep = "_")]
 
   return(data_to_return)
- 
 }
 
 
-#/*=================================================*/
+# /*=================================================*/
 #' # Recover section id
-#/*=================================================*/
+# /*=================================================*/
 
 recover_section_id_by_group <- function(data, group_id) {
-
-  temp_data <- data[strip_group == group_id, ] %>% 
+  temp_data <- data[strip_group == group_id, ] %>%
     .[, .(id, section_group, X, Y)]
 
   section_group_ls <- temp_data[, section_group] %>% unique()
   section_len <- length(section_group_ls)
 
-  dist_data <- temp_data %>% 
-    rename(section_group_id = section_group) %>% 
-    rowwise() %>% 
+  dist_data <- temp_data %>%
+    rename(section_group_id = section_group) %>%
+    rowwise() %>%
     mutate(n_points = list(
-      temp_data[section_group == section_group_id + 1, ] %>% 
+      temp_data[section_group == section_group_id + 1, ] %>%
         setnames(names(.), paste0(names(.), "_n"))
-    )) %>% 
-  unnest(n_points) %>% 
-  data.table() %>% 
-  .[, dist := sqrt((X - X_n) ^ 2 + (Y - Y_n) ^ 2)] %>% 
-  .[, .SD[which.min(dist), ], by = id]
+    )) %>%
+    unnest(n_points) %>%
+    data.table() %>%
+    .[, dist := sqrt((X - X_n)^2 + (Y - Y_n)^2)] %>%
+    .[, .SD[which.min(dist), ], by = id]
 
   max_id <- temp_data$id %>% max()
 
- # get_section_id(start_id = 13261, max_id)
+  # get_section_id(start_id = 13261, max_id)
 
   get_section_id <- function(start_id, max_id) {
-
     temp_id <- start_id
-    id_ls <- temp_id  
+    id_ls <- temp_id
 
     while (temp_id < max_id) {
       temp_id <- dist_data[id == temp_id, id_n]
-      if (length(temp_id) == 0){
+      if (length(temp_id) == 0) {
         break
       } else {
         id_ls <- c(id_ls, temp_id)
@@ -798,7 +793,7 @@ recover_section_id_by_group <- function(data, group_id) {
     }
 
     section_id_data <- data.table(
-      sectionid = start_id, 
+      sectionid = start_id,
       id = id_ls
     )
 
@@ -810,13 +805,12 @@ recover_section_id_by_group <- function(data, group_id) {
   section_id_data <- lapply(
     dist_data[section_group_id == min_section_id, id],
     function(x) get_section_id(x, max_id)
-  ) %>% 
-  rbindlist()
+  ) %>%
+    rbindlist()
 
   return(section_id_data)
-
 }
-  
+
 # /*----------------------------------*/
 #' ## make polygons when section control is available
 # /*----------------------------------*/
@@ -1160,16 +1154,14 @@ make_var_name_consistent <- function(data, dictionary) {
 # rate <- c(130, 120)
 
 convert_N_unit <- function(
-  form,
-  unit,
-  rate,
-  reporting_unit,
-  conversion_type = "to_n_equiv"
-) {
-  
-  conv_table <- 
+                           form,
+                           unit,
+                           rate,
+                           reporting_unit,
+                           conversion_type = "to_n_equiv") {
+  conv_table <-
     fromJSON(
-      here("Data", "CommonData", "nitrogen_conversion.json"), 
+      here("Data", "CommonData", "nitrogen_conversion.json"),
       flatten = TRUE
     ) %>%
     data.table() %>%
@@ -1189,9 +1181,9 @@ convert_N_unit <- function(
   }
 
   if (conversion_type == "to_n_equiv") {
-    converted_rate <- (conv_factor_n)*rate
+    converted_rate <- (conv_factor_n) * rate
   } else {
-    converted_rate <- (1/conv_factor_n)*rate
+    converted_rate <- (1 / conv_factor_n) * rate
   }
 
   return(as.numeric(converted_rate))
@@ -1200,7 +1192,7 @@ convert_N_unit <- function(
 # /*=================================================*/
 #' # Others
 # /*=================================================*/
-tm_layout_to_add <- 
+tm_layout_to_add <-
   tm_layout(
     legend.outside = "TRUE",
     frame = FALSE,
@@ -1267,9 +1259,8 @@ st_set_4326 <- function(data_sf) {
 #   geom_sf(data = input_polygons[yield_polygons[5000, ], ], col = "blue") +
 #   geom_sf(data = yield_polygons[5000, ], fill = "red", alpha = 0.3)
 
-intersect_yield_input <- function(yield_polygons, input_polygons){
-
-  pct_int <- 
+intersect_yield_input <- function(yield_polygons, input_polygons) {
+  pct_int <-
     st_intersection(
       # dplyr::select(yield_polygons[50, ], yield_id, yield_area),
       dplyr::select(yield_polygons, yield_id, yield_area),
@@ -1306,7 +1297,7 @@ intersect_yield_input <- function(yield_polygons, input_polygons){
 crop <- c("corn", "soy", "wheat", "cotton")
 input_type <- c("S", "N", "K")
 
-max_dev_table <- 
+max_dev_table <-
   CJ(crop = crop, input_type = input_type) %>%
   .[, max_dev_allowed := c(
     2, # corn-K
@@ -1504,5 +1495,4 @@ get_ssurgo_props <- function(field, vars, summarize = FALSE) {
   } else {
     return(ssurgo_data)
   }
-  
 }

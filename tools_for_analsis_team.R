@@ -51,7 +51,7 @@ get_ne_data(
 
 #--- individually ---#
 exp_process_make_report(
-  ffy = field_year_ls[1],
+  ffy = field_year_ls[3],
   rerun = TRUE,
   locally_run = TRUE
 )
