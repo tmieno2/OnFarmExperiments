@@ -67,7 +67,6 @@ get_ne_data <- function(ffy, rerun = FALSE, locally_run = FALSE) {
 # /*=================================================*/
 
 exp_process_make_report <- function(ffy, rerun = FALSE, locally_run = FALSE) {
-
   library(knitr)
   options(knitr.duplicate.label = "allow")
 
@@ -964,7 +963,7 @@ get_trial_parameter <- function(ffy) {
   input_data_trial <-
     input_data[
       strategy == "trial",
-      .(form, use_target_rate_instead, machine_width, unit, data, Rx_data)
+      .(form, use_target_rate_instead, machine_width, unit, data, Rx_data, var_name_prefix)
     ] %>%
     .[, input_type := NA] %>%
     .[, input_type := ifelse(form == "seed", "S", input_type)] %>%

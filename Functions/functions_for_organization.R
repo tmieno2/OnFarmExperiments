@@ -258,7 +258,7 @@ initiate_fp_entry <- function(farm, field, year, crop, json_file = NULL) {
 # an existing field parameter file
 
 
-add_inputs <- function(json_file, farm, field, year, input_ls, product_ls, strategy_ls) {
+add_inputs <- function(json_file, farm, field, year, input_ls, product_ls, file_names_ls, strategy_ls, var_name_prefix_ls) {
   ffy <- paste(farm, field, year, sep = "_")
 
   existing_data <-
@@ -301,13 +301,8 @@ add_inputs <- function(json_file, farm, field, year, input_ls, product_ls, strat
           price = "numeric (no double quotes needed)",
           date = "mm/dd/yyyy",
           data = "not received, lost, file_name in the Raw data folder if received",
-          sq_rate = "numeric (no double quotes needed) or (Rx) prescription file name",
-          min_rate = "numeric (no double quotes needed)",
-          max_rate = "numeric (no double quotes needed)",
           Rx_data = "not available, exists (not received), received",
-          machine_width = "numeric (no double quotes needed)",
-          input_plot_width = "numeric (no double quotes needed)",
-          use_target_rate_instead = "true or false (no double quotes needed)"
+          machine_width = "numeric (no double quotes needed)"
         )
       } else {
         #--- if not seed ---#
@@ -318,14 +313,11 @@ add_inputs <- function(json_file, farm, field, year, input_ls, product_ls, strat
           unit = "gallons, lbs, Mg, kg, bales",
           price = "numeric (no double quotes needed)",
           date = "mm/dd/yyyy",
-          data = "not received, lost, file_name in the Raw data folder if received",
-          sq_rate = "numeric (no double quotes needed) or (Rx) prescription file name",
-          min_rate = "numeric (no double quotes needed)",
-          max_rate = "numeric (no double quotes needed)",
-          Rx_data = "not available, exists (not received), received",
+          data = file_names_ls[i],
+          Rx_data = "none",
+          var_name_prefix = var_name_prefix_ls[i],
           machine_width = "numeric (no double quotes needed)",
-          input_plot_width = "numeric (no double quotes needed)",
-          use_target_rate_instead = "true or false (not double quotes needed)"
+          use_target_rate_instead = FALSE
         )
       }
     } else if (strategy_ls[i] == "base") {

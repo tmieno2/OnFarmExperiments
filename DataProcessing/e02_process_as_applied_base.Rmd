@@ -5,7 +5,6 @@
 ### As-applied data
 
 ```{r Reading-as-applied-n-data}
-
 input_type <- "input_type_here"
 input_form <- "input_form_here"
 input_unit <- "input_unit_here"
@@ -425,9 +424,6 @@ if (is_aa_input_polygon) { #* if as-applied rate is in polygon
     dplyr::select(aa_input_id, input_rate, ol_input_rate)
 }
 
-aa_input_sf <-
-  aa_input_sf %>%
-  dplyr::select(aa_input_id, input_rate, ol_input_rate)
 ```
 
 ```{r }
@@ -451,9 +447,15 @@ tm_shape(aa_input_sf) +
   tm_layout_to_add
 ```
 
-## Save the data
+## Format and save the data
 
 ```{r }
+#* select variables
+aa_input_sf <-
+  aa_input_sf %>%
+  dplyr::select(aa_input_id, input_rate, ol_input_rate)
+
+#* save
 here(
   "Data/Growers", ffy, "Intermediate",
   paste0("aa-", input_type, "-", input_form, ".rds")

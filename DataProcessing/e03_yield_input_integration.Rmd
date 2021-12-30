@@ -245,7 +245,7 @@ input_pct <-
       setnames("wm_input_rate", "input_rate") %>%
       unique(by = "yield_id")
   )) %>%
-  dplyr::select(input_type, form, yield_input_int, input_pct_data) %>%
+  dplyr::select(input_type, form, var_name_prefix, yield_input_int, input_pct_data) %>%
   mutate(
     # === visualize overlap ===#
     gg_overlap = list(
@@ -272,7 +272,6 @@ input_pct <-
         )
     )
   )
-
 ```
 
 ```{r }
@@ -309,7 +308,7 @@ if (units == "metric") {
 # === yield data after removing unreliable inputs ===#
 yield_input_data_pre <-
   input_pct %>%
-  dplyr::select(input_type, form, input_pct_data) %>%
+  dplyr::select(input_type, var_name_prefix, form, input_pct_data) %>%
   left_join(max_dev_dt, by = "input_type") %>%
   mutate(input_pct_data_pre = list(
     data.table::copy(input_pct_data) %>%
@@ -336,7 +335,8 @@ yield_input_data_pre <-
           paste0(tolower(input_type), "_overlap", form),
           paste0(tolower(input_type), "_deviation", form)
         )
-      )
+      ) %>%
+      rename_at(vars(-one_of("yield_id")), ~ paste0(ifelse(is.na(var_name_prefix), "", paste0(var_name_prefix, "_")), .))
   ))
 ```
 
@@ -432,7 +432,7 @@ viz$viz_deviation
 ```{r }
 saveRDS(yield_input_data, file = here("Data", "Growers", ffy, "Intermediate/yield_input_data.rds"))
 
-# yield_input_data <- readRDS(file = here("Data", "Growers", ffy, "Intermediate/yield_input_data.rds"))
+yield_input_data <- readRDS(file = here("Data", "Growers", ffy, "Intermediate/yield_input_data.rds"))
 
 saveRDS(detailed_int_data, file = here("Data", "Growers", ffy, "DataProcessingReport/detailed_intersection_info.rds"))
 ```
