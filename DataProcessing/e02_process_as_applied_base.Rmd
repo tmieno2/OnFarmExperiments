@@ -383,8 +383,10 @@ if (is_aa_input_polygon) { #* if as-applied rate is in polygon
     aa_input_reduced_v %>%
     dplyr::select(-geometry) %>%
     left_join(aa_input_poly, , by = "aa_id") %>%
-    rename(aa_input_id = aa_id)
-} else {
+    rename(aa_input_id = aa_id) %>%
+    st_as_sf()
+
+} else { 
   #--- prepare parallel computation ---#
   plan(multiprocess, workers = detectCores() - 2)
 
