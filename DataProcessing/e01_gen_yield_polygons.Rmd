@@ -237,7 +237,7 @@ tm_shape(yield_grouped) +
 ```{r }
 close_to_ol_id <-
   yield_grouped %>%
-  nest_by(group, Trt, Rep, PlotNum) %>%
+  nest_by(group, trd_PlotNum) %>%
   mutate(outliers = list(
     #* keep those that are either yield or speed outliers
     filter(data, ol_yield_vol == 1 | ol_speed == 1) %>%
