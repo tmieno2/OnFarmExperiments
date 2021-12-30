@@ -84,23 +84,27 @@ aa_input <-
 This code assumes that if `distance` is in meter, then other variables (e.g., `width`) are also measured in meter.
 
 ```{r }
-dist_test <- aa_input %>%
-  dplyr::select(distance) %>%
-  cbind(., st_coordinates(.)) %>%
-  data.table() %>%
-  .[, dif_X := c(0, diff(X))] %>%
-  .[, dif_Y := c(0, diff(Y))] %>%
-  #--- distance in meter ---#
-  .[, distance_r := sqrt(dif_X^2 + dif_Y^2)] %>%
-  #--- dif in difference in meter and recorded distance ---#
-  .[, dif_distance := abs(distance - distance_r)] %>%
-  .[, dif_distance_conv := abs(conv_unit(distance, "ft", "m") - distance_r)]
+no_recorded_dist <- all(is.na(aa_input$distance))
 
-# we want to see if the converted units from ft to meter are closer to the distance measured in r
-if (mean(dist_test$dif_distance_conv, na.rm = TRUE) < mean(dist_test$dif_distance, na.rm = TRUE)) {
-  units <- "imperial"
-} else {
-  units <- "metric"
+if (!no_recorded_dist) {
+  dist_test <- aa_input %>%
+    dplyr::select(distance) %>%
+    cbind(., st_coordinates(.)) %>%
+    data.table() %>%
+    .[, dif_X := c(0, diff(X))] %>%
+    .[, dif_Y := c(0, diff(Y))] %>%
+    #--- distance in meter ---#
+    .[, distance_r := sqrt(dif_X^2 + dif_Y^2)] %>%
+    #--- dif in difference in meter and recorded distance ---#
+    .[, dif_distance := abs(distance - distance_r)] %>%
+    .[, dif_distance_conv := abs(conv_unit(distance, "ft", "m") - distance_r)]
+
+  # we want to see if the converted units from ft to meter are closer to the distance measured in r
+  if (mean(dist_test$dif_distance_conv, na.rm = TRUE) < mean(dist_test$dif_distance, na.rm = TRUE)) {
+    units <- "imperial"
+  } else {
+    units <- "metric"
+  }
 }
 ```
 
