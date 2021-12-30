@@ -183,7 +183,7 @@ yield_trd <-
     )
   )) %>%
   unnest() %>%
-  st_drop_geometry() %>%
+  dplyr::select(-geometry) %>%
   data.table()
 
 #* join with yield_grouped
