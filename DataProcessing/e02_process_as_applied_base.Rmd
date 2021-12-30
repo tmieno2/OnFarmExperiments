@@ -377,40 +377,54 @@ if (is_dense) {
 ## Create polygons
 
 ```{r }
-#--- prepare parallel computation ---#
-plan(multiprocess, workers = detectCores() - 2)
+if (is_aa_input_polygon) { #* if as-applied rate is in polygon
 
-#--- create polygons ---#
-all_polygons <-
-  future_lapply(
-    #--- list of groups to loop over ---#
-    aa_input_reduced_v$new_group %>% unique(),
-    #--- make polygons by group ---#
-    function(x) {
-      make_polygons(
-        filter(aa_input_reduced_v, new_group == x)
-      )
-    }
-  ) %>%
-  do.call("c", .) %>%
-  st_as_sfc()
+  aa_input_sf <-
+    aa_input_reduced_v %>%
+    dplyr::select(-geometry) %>%
+    left_join(aa_input_poly, , by = "aa_id") %>%
+    rename(aa_input_id = aa_id)
+} else {
+  #--- prepare parallel computation ---#
+  plan(multiprocess, workers = detectCores() - 2)
 
-#--- combine with the data ---#
+  #--- create polygons ---#
+  all_polygons <-
+    future_lapply(
+      #--- list of groups to loop over ---#
+      aa_input_reduced_v$new_group %>% unique(),
+      #--- make polygons by group ---#
+      function(x) {
+        make_polygons(
+          filter(aa_input_reduced_v, new_group == x)
+        )
+      }
+    ) %>%
+    do.call("c", .) %>%
+    st_as_sfc()
+
+  #--- combine with the data ---#
+  aa_input_sf <-
+    aa_input_reduced_v %>%
+    mutate(geometry = all_polygons) %>%
+    st_as_sf() %>%
+    st_set_crs(st_crs(aa_input)) %>%
+    #--- get rid of transition polygons by area ---#
+    mutate(area = as.numeric(st_area(.))) %>%
+    filter(area <= median(area) * 3) %>%
+    mutate(aa_input_id = 1:nrow(.)) %>%
+    filter(!st_is_empty(.)) %>%
+    dplyr::select(aa_input_id, input_rate, ol_input_rate)
+}
+
 aa_input_sf <-
-  aa_input_reduced_v %>%
-  mutate(geometry = all_polygons) %>%
-  st_as_sf() %>%
-  st_set_crs(st_crs(aa_input)) %>%
-  #--- get rid of transition polygons by area ---#
-  mutate(area = as.numeric(st_area(.))) %>%
-  filter(area <= median(area) * 3) %>%
-  mutate(aa_input_id = 1:nrow(.)) %>%
-  filter(!st_is_empty(.)) %>%
-  dplyr::select(aa_input_id, input_rate, ol_input_rate)
-```
-
-```{r eval = is_aa_input_polygon}
-aa_input_sf <- left_join(aa_input_poly, st_drop_geometry(aa_input_sf), by = "aa_id")
+  aa_input_sf %>%
+  dplyr::select(
+    -new_group, -distance, -angle, -width, -time,
+    -speed, -offset, -sectionid, -X, -Y, -original_order_id,
+    -change_group, -group, -obs_per_group, -Trt,
+    -Rep
+  )
 ```
 
 ```{r }
