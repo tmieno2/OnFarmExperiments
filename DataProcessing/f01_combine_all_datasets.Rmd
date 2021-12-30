@@ -74,50 +74,67 @@ yield_sf <- left_join(yield_sf, ssurgo_values, by = "yield_id")
 ## Rx
 
 ```{r }
-cm_rx_data <-
-  trial_info$rx_data %>%
-  rowwise() %>%
-  mutate(cm_rx = list(
-    st_read(here("Data/Growers", ffy, "Raw", file))
-  )) %>%
-  mutate(yield_cm_rx = list(
-    st_join(yield_point, st_transform(cm_rx, st_crs(yield_point))) %>%
-      data.table() %>%
-      .[, c("yield_id", form), with = FALSE] %>%
-      setnames(form, paste0(form, "_", model))
-  )) %>%
-  pull(yield_cm_rx) %>%
-  reduce(left_join, by = "yield_id")
+if (!is.null(nrow(trial_info$rx_data))) {
+  cm_rx_data <-
+    trial_info$rx_data %>%
+    rowwise() %>%
+    mutate(cm_rx = list(
+      st_read(here("Data/Growers", ffy, "Raw", file))
+    )) %>%
+    mutate(cm_rx = list(
+      if (var_name_prefix != "none") {
+        cm_rx %>%
+          setnames(names(.), paste0(var_name_prefix, "_", names(.)))
+      }
+    )) %>%
+    mutate(yield_cm_rx = list(
+      st_join(yield_point, st_transform(cm_rx, st_crs(yield_point))) %>%
+        data.table() %>%
+        .[, c("yield_id", form), with = FALSE] %>%
+        setnames(form, paste0(form, "_", model))
+    )) %>%
+    pull(yield_cm_rx) %>%
+    reduce(left_join, by = "yield_id")
 
-yield_sf <- left_join(yield_sf, cm_rx_data, by = "yield_id")
+  yield_sf <- left_join(yield_sf, cm_rx_data, by = "yield_id")
+}
 ```
 
 ## Ex data
 
 ```{r }
-ex_data <-
-  trial_info$ex_data %>%
-  rowwise() %>%
-  mutate(data = list(
-    st_read(here("Data/Growers", ffy, "Raw", file))
-  )) %>%
-  mutate(data_keep = list(
-    data[, vars] %>%
-      st_transform(st_crs(yield_point))
-  )) %>%
-  mutate(geom_type = list(
-    st_geometry_type(data_keep) %>% unique()
-  )) %>%
-  mutate(matched_data = list(
-    if (geom_type %in% c("POINT", "MULTIPOINT")) {
-      st_join(yield_point, data_keep, join = st_nearest_feature) %>%
-        st_drop_geometry()
-    }
-  )) %>%
-  pull(matched_data) %>%
-  reduce(left_join, by = "yield_id")
 
-yield_sf <- left_join(yield_sf, ex_data, by = "yield_id")
+if (!is.null(nrow(trial_info$ex_data))) {
+  ex_data <-
+    trial_info$ex_data %>%
+    rowwise() %>%
+    mutate(data = list(
+      st_read(here("Data/Growers", ffy, "Raw", file))
+    )) %>%
+    mutate(data_keep = list(
+      data[, vars] %>%
+        st_transform(st_crs(yield_point))
+    )) %>%
+    mutate(data_keep = list(
+      if (var_name_prefix != "none") {
+        data_keep %>%
+          setnames(names(.), paste0(var_name_prefix, "_", names(.)))
+      }
+    )) %>%
+    mutate(geom_type = list(
+      st_geometry_type(data_keep) %>% unique()
+    )) %>%
+    mutate(matched_data = list(
+      if (geom_type %in% c("POINT", "MULTIPOINT")) {
+        st_join(yield_point, data_keep, join = st_nearest_feature) %>%
+          st_drop_geometry()
+      }
+    )) %>%
+    pull(matched_data) %>%
+    reduce(left_join, by = "yield_id")
+
+  yield_sf <- left_join(yield_sf, ex_data, by = "yield_id")
+}
 ```
 
 ## Save

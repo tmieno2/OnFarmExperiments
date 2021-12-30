@@ -256,7 +256,85 @@ initiate_fp_entry <- function(farm, field, year, crop, json_file = NULL) {
 # /*=================================================*/
 # Note: this code adds input data to an existing farm-field-year in
 # an existing field parameter file
+json_file <- "metadata.json"
+json_file <- "metadata_new.json"
 
+add_inputs <- function(json_file, farm, field, year, input_data) {
+
+  ffy <- paste(farm, field, year, sep = "_")
+
+  existing_data <-
+    here("Data", "CommonData", json_file) %>%
+    jsonlite::fromJSON(., flatten = TRUE) %>%
+    data.table() %>%
+    .[, field_year := paste(farm, field, year, sep = "_")]
+
+  w_data <- existing_data[field_year == ffy, ]
+
+  if (nrow(w_data) != 1) {
+    print(
+      "No (or duplicate) records for the specified farm-field-year are found. Check if the specified parameters are correct."
+    )
+    break
+  }
+
+  ex_input_data <-
+    w_data$input_data[[1]] %>%
+    rowwise() %>%
+    mutate(data = list(
+      data %>%
+        data.table() %>%
+        .[, feature := paste(form, product, strategy, var_name_prefix, sep = "_")]
+    ))
+
+  all_features <-
+    map(ex_input_data$data, "feature") %>%
+    unlist()
+
+  for (i in 1:nrow(input_data)) {
+
+    temp_input_data <-
+      input_data[i, ] %>%
+      data.table() 
+
+    temp_feature <- temp_input_data[, paste(form, product, strategy, var_name_prefix, sep = "_")]
+
+    which_row <- which(temp_feature == all_features)
+
+    if (length(which_row) != 0) {
+      print("There is an exsiting entry in the current input data that is identical. Overriding the entry.")
+      ex_input_data$data[[which_row]] <- temp_input_data
+    } else {
+      print("There is no exsiting entry in the current input data. Adding the entry.")
+      ex_input_data <- rbind(ex_input_data, tibble(data = list(temp_input_data)))
+    }
+  }
+
+  w_data <- 
+    as_tibble(w_data) %>%
+    rowwise() %>%
+    mutate(input_data = list(
+      as.data.frame(ex_input_data)
+    ))
+
+  out_data <- 
+    rbind(
+      existing_data[field_year != ffy, ],
+      w_data,
+      fill = TRUE
+    ) %>%
+    .[order(field_year), ] %>%
+    .[, field_year := NULL]
+
+  jsonlite::write_json(
+    out_data,
+    file.path(
+      here("Data", "CommonData"),
+      json_file
+    ),
+    pretty = TRUE
+  )
+}
 
 add_inputs <- function(json_file, farm, field, year, input_ls, product_ls, file_names_ls, strategy_ls, var_name_prefix_ls) {
   ffy <- paste(farm, field, year, sep = "_")
@@ -465,7 +543,31 @@ add_Ex <- function(json_file, farm, field, year, Ex_data) {
     data.table() %>%
     .[, field_year := paste(farm, field, year, sep = "_")]
 
-  w_data <- existing_data[field_year == ffy, ]
+  w_data <- existing_data[field_year == ffy, ] %>% rowwise()
+
+  # input_data <-  tibble(
+  #   id = c(1, 2, 3),
+  #   input_data = list(w_data$input.1[[1]], w_data$input.2[[1]], w_data$input.3[[1]])
+  # )
+  # Rx_data <-  tibble(
+  #   id = c(1, 2),
+  #   input_data = list(w_data$Rx.1[[1]], w_data$Rx.2[[1]])
+  # )
+  # Ex_data <-  tibble(
+  #   id = c(1),
+  #   input_data = list(w_data$Ex.1[[1]])
+  # )
+  # w_data$input_data <- list(input_data)
+  # w_data$Rx_data <- list(Rx_data)
+  # w_data$Ex_data <- list(Ex_data)
+
+  # w_data$input_data
+
+  # jsonlite::write_json(
+  #   w_data,
+  #   here("Data", "CommonData", paste0("metadata_",ffy,".json")),
+  #   pretty = TRUE
+  # )
 
   if (nrow(w_data) != 1) {
     print(
@@ -505,10 +607,11 @@ add_Ex <- function(json_file, farm, field, year, Ex_data) {
         Ex_num <- 1
       } else {
         Ex_num_e <-
-          names() %>%
+          names(ex_data) %>%
           gsub("Ex.", "", .) %>%
           as.numeric() %>%
           max()
+
         Ex_num <- Ex_num_e + 1
       }
 
@@ -529,7 +632,7 @@ add_Ex <- function(json_file, farm, field, year, Ex_data) {
     out_data,
     file.path(
       here("Data", "CommonData"),
-      json_file
+      json_file,
     ),
     pretty = TRUE
   )

@@ -104,8 +104,7 @@ exp_process_make_report <- function(ffy, rerun = FALSE, locally_run = FALSE) {
       e02_rmd = list(
         prepare_e02_rmd(
           input_type = input_type,
-          use_td = use_target_rate_instead,
-          data_file = data,
+          data_file = file_name,
           input_form = form,
           reporting_unit = reporting_unit,
           input_unit = unit,
@@ -846,7 +845,7 @@ get_td_text <- function(input_type, gc_type, locally_run = FALSE) {
   return(td_rmd)
 }
 
-prepare_e02_rmd <- function(input_type, use_td, data_file, input_form, reporting_unit, input_unit, machine_width, locally_run = FALSE) {
+prepare_e02_rmd <- function(input_type, use_td = FALSE, data_file, input_form, reporting_unit, input_unit, machine_width, locally_run = FALSE) {
   if (!use_td) {
     return_rmd <-
       read_rmd(
@@ -889,10 +888,7 @@ get_trial_parameter <- function(ffy) {
   #--- field data ---#
   field_data <-
     jsonlite::fromJSON(
-      file.path(
-        here("Data", "CommonData"),
-        "metadata.json"
-      ),
+      here("Data", "CommonData", "metadata.json"),
       flatten = TRUE
     ) %>%
     data.table() %>%
@@ -906,31 +902,31 @@ get_trial_parameter <- function(ffy) {
   w_year <- w_field_data$year
 
   # === Input data ===#
-  input_data <-
-    dplyr::select(
-      w_field_data,
-      starts_with("input")
-    ) %>%
-    map(1) %>%
+  input_data <- 
+    w_field_data$input_data[[1]]$data %>% 
     rbindlist(fill = TRUE)
 
   # === Rx data ===#
-  rx_data <-
-    dplyr::select(
-      w_field_data,
-      starts_with("Rx.")
-    ) %>%
-    map(1) %>%
-    rbindlist(fill = TRUE)
+  rx_exists <- w_field_data$Rx_data[[1]] %>% nrow()
+
+  if (!is.null(rx_exists)) {
+    rx_data <-
+      w_field_data$Rx_data[[1]]$data %>% 
+      rbindlist(fill = TRUE)
+  } else {
+    rx_data <- NA
+  }
 
   # === External data ===#
-  ex_data <-
-    dplyr::select(
-      w_field_data,
-      starts_with("Ex.")
-    ) %>%
-    map(1) %>%
-    rbindlist(fill = TRUE)
+  ex_exists <- w_field_data$Ex_data[[1]] %>% nrow()
+
+  if (!is.null(ex_exists)) {
+    ex_data <-
+      w_field_data$Ex_data[[1]]$data %>% 
+      rbindlist(fill = TRUE)
+  } else {
+    ex_data <- NA
+  }
 
   # /*----------------------------------*/
   #' ## Crop information
@@ -963,7 +959,7 @@ get_trial_parameter <- function(ffy) {
   input_data_trial <-
     input_data[
       strategy == "trial",
-      .(form, use_target_rate_instead, machine_width, unit, data, Rx_data, var_name_prefix)
+      .(form, machine_width, unit, file_name, Rx_data, var_name_prefix)
     ] %>%
     .[, input_type := NA] %>%
     .[, input_type := ifelse(form == "seed", "S", input_type)] %>%

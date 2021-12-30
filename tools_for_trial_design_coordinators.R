@@ -44,17 +44,28 @@ initiate_fp_entry(
 # farmers)
 make_grower_folders(field_data)
 
+input_data <-
+  data.table(
+    form = c("N_equiv", "UAN32", "UAN32"),
+    product = c("11520", "UAN32", "UAN32"),
+    strategy = c("base", "trial", "trial"),
+    file_name = c(NA, "21_MMUR_W_SN_FA1", "21_MMUR_W_SN_HF1"),
+    unit = c("lbs", "gallons", "gallons"),
+    date = c("mm/dd/yyyy", "mm/dd/yyyy", "mm/dd/yyyy"),
+    Rx_data = c("none", "none", "none"),
+    machine_width = c(NA, 90, 40),
+    rate = c(32, NA, NA),
+    var_name_prefix = c("none", "FA1", "HF1")
+  )
+
 #--- add inputs data (as the details of the trial gets clear) ---#
+
 add_inputs(
   json_file = "metadata.json",
   farm = "MMUR",
   field = "1",
   year = "2021",
-  file_names_ls = c(NA, "21_MMUR_W_SN_FA1", "21_MMUR_W_SN_HF1")
-  input_ls = c("N_equiv", "UAN32", "UAN32"),
-  product_ls = c("11520", "UAN32", "UAN32"),
-  strategy_ls = c("base", "trial", "trial"),
-  var_name_prefix_ls = c(NA, "FA1", "HF1")
+  input_data = input_data
 )
 
 # /*----------------------------------*/
@@ -89,7 +100,7 @@ Ex_data <-
 
 add_Ex(
   json_file = "metadata.json",
-  farm = "BROB",
+  farm = "DSTE",
   field = "1",
   year = "2021",
   Ex_data = Ex_data
