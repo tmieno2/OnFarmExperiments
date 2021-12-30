@@ -67,6 +67,7 @@ get_ne_data <- function(ffy, rerun = FALSE, locally_run = FALSE) {
 # /*=================================================*/
 
 exp_process_make_report <- function(ffy, rerun = FALSE, locally_run = FALSE) {
+
   library(knitr)
   options(knitr.duplicate.label = "allow")
 

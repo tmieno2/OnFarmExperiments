@@ -145,14 +145,19 @@ trd_polygons <-
     paste0(trial_info$tr_design_data, ".shp")
   ) %>%
   st_read() %>%
-  mutate(treat_id = 1:nrow(.))
+  mutate(treat_id = 1:nrow(.)) %>%
+  dplyr::rename_at(vars(-one_of("geometry")), ~ paste0("trd_", .))
+
+if (!("trd_PlotNum" %in% names(trd_polygons))) {
+  trd_polygons <- mutate(trd_polygons, trd_PlotNum = 1:nrow(trd_polygons))
+}
 ```
 
 **Visualization**
 ```{r }
 # === vis ===#
 tm_shape(trd_polygons) +
-  tm_polygons(col = "Trt")
+  tm_polygons(col = "trd_Trt")
 ```
 
 ### Flag yield outliers by treatment block
@@ -161,14 +166,15 @@ tm_shape(trd_polygons) +
 sd_factor <- 4
 
 yield_trd <-
+  yield_grouped %>%
+  dplyr::select(yield_id, yield_vol, geometry) %>%
   #* identify which yield point falls in which treatment block
-  st_join(yield_grouped, trd_polygons) %>%
+  st_join(., trd_polygons) %>%
   #* order by yield id
   arrange(yield_id) %>%
   data.table() %>%
-  .[, .(yield_id, group, treat_id, Trt, Rep, PlotNum, yield_vol, geometry)] %>%
   #* flag outliers by treatment block
-  nest_by(Trt, Rep) %>%
+  nest_by(trd_PlotNum) %>%
   mutate(data = list(
     flag_bad_points(
       data = data,
@@ -177,8 +183,8 @@ yield_trd <-
     )
   )) %>%
   unnest() %>%
-  data.table() %>%
-  .[, .(yield_id, Trt, PlotNum, Rep, ol_yield_vol)]
+  st_drop_geometry() %>%
+  data.table()
 
 #* join with yield_grouped
 yield_grouped <-

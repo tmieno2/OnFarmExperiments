@@ -28,7 +28,10 @@ is_aa_input_polygon <- any(st_geometry_type(aa_input) == "POLYGON")
 
 if (is_aa_input_polygon) {
   aa_input <- close_unclosed(aa_input)
-
+  #* we will merge this information later
+  aa_input_poly <-
+    aa_input %>%
+    dplyr::select(aa_id, geometry)
   aa_input$geometry <- st_centroid(aa_input$geometry)
 }
 
@@ -262,7 +265,9 @@ trd_polygons <-
     "Data/Growers", ffy, "TrialDesign",
     paste0(trial_info$tr_design_data, ".shp")
   ) %>%
-  st_read()
+  st_read() %>%
+  st_transform(st_crs(aa_input_grouped)) %>%
+  mutate(trd_id = 1:nrow(.))
 ```
 
 **Visualization**
@@ -283,16 +288,18 @@ This process uses a different criteria from that used for yield data.
 ```{r }
 
 aa_input_trd <-
+  aa_input_grouped %>%
+  dplyr::select(aa_id, input_rate, group, geometry) %>%
   #* identify which yield point falls in which treatment block
-  st_join(aa_input_grouped, trd_polygons) %>%
+  st_join(., trd_polygons) %>%
   #* order by yield id
   arrange(aa_id) %>%
   data.table() %>%
-  .[, .(aa_id, group, Trt, Rep, input_rate, geometry)] %>%
   #* flag outliers by treatment block
-  nest_by(Trt, Rep, group) %>%
-  mutate(median_input_rate =
-    median(data$input_rate, na.rm = TRUE)
+  nest_by(trd_id, group) %>%
+  mutate(
+    median_input_rate =
+      median(data$input_rate, na.rm = TRUE)
   ) %>%
   mutate(data = list(
     mutate(data, ol_input_rate = ifelse(
@@ -302,7 +309,7 @@ aa_input_trd <-
   )) %>%
   unnest() %>%
   data.table() %>%
-  .[, .(aa_id, Trt, Rep, ol_input_rate)]
+  .[, .(aa_id, ol_input_rate)]
 
 #* join with aa_input_grouped
 aa_input_grouped <-
@@ -396,6 +403,10 @@ aa_input_sf <-
   mutate(aa_input_id = 1:nrow(.)) %>%
   filter(!st_is_empty(.)) %>%
   dplyr::select(aa_input_id, input_rate, ol_input_rate)
+```
+
+```{r eval = is_aa_input_polygon}
+aa_input_sf <- left_join(aa_input_poly, st_drop_geometry(aa_input_sf), by = "aa_id")
 ```
 
 ```{r }
