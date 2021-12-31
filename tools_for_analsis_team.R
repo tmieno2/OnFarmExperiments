@@ -26,9 +26,9 @@ field_year_ls <- field_data$field_year
 # /*=================================================*/
 #' # Data Processing
 # /*=================================================*/
-make_data_report()
+# make_data_report()
 
-# ffy <- field_year_ls[8]
+ffy <- field_year_ls[2]
 
 # /*----------------------------------*/
 #' ## Non-experiment Data
@@ -38,9 +38,9 @@ make_data_report()
 
 #--- individually ---#
 get_ne_data(
-  ffy = field_year_ls[1],
+  ffy = ffy,
   rerun = TRUE,
-  locally_run = TRUE
+  locally_run = FALSE
 )
 
 # /*----------------------------------*/
@@ -51,9 +51,9 @@ get_ne_data(
 
 #--- individually ---#
 exp_process_make_report(
-  ffy = field_year_ls[3],
+  ffy = ffy,
   rerun = TRUE,
-  locally_run = TRUE
+  locally_run = FALSE
 )
 
 # /*----------------------------------*/
@@ -64,8 +64,9 @@ exp_process_make_report(
 
 #--- individually ---#
 f_process_make_report(
-  ffy = field_year_ls[1],
-  rerun = TRUE
+  ffy = ffy,
+  rerun = TRUE,
+  locally_run = FALSE
 )
 
 # /*=================================================*/
@@ -82,7 +83,7 @@ f_process_make_report(
 run_analysis(
   ffy = field_year_ls[7],
   rerun = TRUE,
-  locally_run = TRUE
+  locally_run = FALSE
 )
 
 # /*----------------------------------*/
