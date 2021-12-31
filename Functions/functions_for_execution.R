@@ -3,6 +3,7 @@
 # /*=================================================*/
 
 get_ne_data <- function(ffy, rerun = FALSE, locally_run = FALSE) {
+
   library(knitr)
   options(knitr.duplicate.label = "allow")
 

@@ -84,14 +84,13 @@ if (!is.null(nrow(trial_info$rx_data))) {
     mutate(cm_rx = list(
       if (var_name_prefix != "none") {
         cm_rx %>%
-          setnames(names(.), paste0(var_name_prefix, "_", names(.)))
+          rename_at(vars(-one_of("geometry")), ~ paste0(var_name_prefix, "_", .))
       }
     )) %>%
     mutate(yield_cm_rx = list(
       st_join(yield_point, st_transform(cm_rx, st_crs(yield_point))) %>%
         data.table() %>%
-        .[, c("yield_id", form), with = FALSE] %>%
-        setnames(form, paste0(form, "_", model))
+        dplyr::select(-geometry)
     )) %>%
     pull(yield_cm_rx) %>%
     reduce(left_join, by = "yield_id")
@@ -118,7 +117,7 @@ if (!is.null(nrow(trial_info$ex_data))) {
     mutate(data_keep = list(
       if (var_name_prefix != "none") {
         data_keep %>%
-          setnames(names(.), paste0(var_name_prefix, "_", names(.)))
+          rename_at(vars(-one_of("geometry")), ~ paste0(var_name_prefix, "_", .))
       }
     )) %>%
     mutate(geom_type = list(
@@ -128,6 +127,17 @@ if (!is.null(nrow(trial_info$ex_data))) {
       if (geom_type %in% c("POINT", "MULTIPOINT")) {
         st_join(yield_point, data_keep, join = st_nearest_feature) %>%
           st_drop_geometry()
+      } else if (geom_type %in% c("POLYGON", "MULTIPOLYGON")) {
+        #* This operation picks the dominant intersection by yield id
+        yield_sf %>%
+          dplyr::select(yield_id, geometry) %>%
+          st_intersection(., data_keep) %>%
+          mutate(int_area = as.numeric(st_area(.))) %>%
+          arrange(yield_id, int_area) %>%
+          group_by(yield_id) %>%
+          slice(1) %>%
+          st_drop_geometry() %>%
+          data.table()
       }
     )) %>%
     pull(matched_data) %>%
