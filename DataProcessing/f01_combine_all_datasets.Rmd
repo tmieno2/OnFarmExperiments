@@ -41,10 +41,13 @@ topo_values <-
     by = rowid,
     .SDcols = paste0("layer.", 1:length(topo_stars))
   ] %>%
-  .[, rowid := NULL] %>%
-  setnames(names(.), names(topo_stars))
+  setnames(names(.)[-1], names(topo_stars))
 
-yield_sf <- cbind(yield_sf, topo_values)
+yield_sf <-
+  yield_sf %>%
+  mutate(rowid := 1:nrow(.)) %>%
+  left_join(., topo_values, by = "rowid") %>%
+  dplyr::select(-rowid)
 ```
 
 ## SSURGO
