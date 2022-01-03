@@ -106,6 +106,25 @@ add_Ex(
   Ex_data = Ex_data
 )
 
+
+Ex_data <-
+  data.table(
+    data_type = c("NDRE"),
+    file = c("21_MMUR_W_SN_HF1.shp"),
+    date = c("04/02/2021"),
+    vars = list(c("NDRE", "Tgt_Rate_g"))
+  )
+
+add_Ex(
+  json_file = "metadata.json",
+  farm = "MMUR",
+  field = "1",
+  year = "2021",
+  Ex_data = Ex_data
+)
+
+
+
 # #/*=================================================*/
 # #' # Add field parameter templates
 # #/*=================================================*/
