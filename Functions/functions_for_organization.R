@@ -277,18 +277,25 @@ add_inputs <- function(json_file, farm, field, year, input_data) {
     break
   }
 
-  ex_input_data <-
-    w_data$input_data[[1]] %>%
-    rowwise() %>%
-    mutate(data = list(
-      data %>%
-        data.table() %>%
-        .[, feature := paste(form, product, strategy, var_name_prefix, sep = "_")]
-    ))
+  ex_input_data_temp <- w_data$input_data[[1]]
 
-  all_features <-
-    map(ex_input_data$data, "feature") %>%
-    unlist()
+  if (length(ex_input_data_temp) > 0) { # if there is at least one existing entry
+    ex_input_data <-
+      ex_input_data_temp %>%
+      rowwise() %>%
+      mutate(data = list(
+        data %>%
+          data.table() %>%
+          .[, feature := paste(form, product, strategy, var_name_prefix, sep = "_")]
+      ))
+
+    all_features <-
+      map(ex_input_data$data, "feature") %>%
+      unlist()
+  } else {
+    ex_input_data <- NULL
+    all_features <- NA
+  }
 
   for (i in 1:nrow(input_data)) {
     temp_input_data <-
@@ -375,37 +382,50 @@ add_Rx <- function(json_file, farm, field, year, Rx_data) {
     break
   }
 
-  existing_Rx_data <-
-    dplyr::select(w_data, starts_with("Rx.")) %>%
-    lapply(., function(x) x[[1]]) %>%
-    rbindlist(fill = TRUE)
+  ex_Rx_data_temp <- w_data$Rx_data[[1]]
 
-  for (i in seq_len(nrow(Rx_data))) {
-    temp_Rx_data <- Rx_data[i, ]
+  if (length(ex_Rx_data_temp) > 0) { # if there is at least one existing entry
+    ex_Rx_data <-
+      ex_Rx_data_temp %>%
+      rowwise() %>%
+      mutate(data = list(
+        data %>%
+          data.table() %>%
+          .[, feature := paste(form, model, file, sep = "_")]
+      ))
 
-    already_there <-
-      lapply(
-        1:nrow(existing_Rx_data),
-        function(x) identical(temp_Rx_data, existing_Rx_data[x, ])
-      ) %>%
-      unlist() %>%
-      any()
+    all_features <-
+      map(ex_Rx_data$data, "feature") %>%
+      unlist()
+  } else {
+    ex_Rx_data <- NULL
+    all_features <- NA
+  }
 
-    if (already_there) {
-      print(temp_Rx_data)
-      print("You already have exactly the same Rx entry. Skipping")
+  for (i in 1:nrow(Rx_data)) {
+    temp_Rx_data <-
+      Rx_data[i, ] %>%
+      data.table()
+
+    temp_feature <- temp_Rx_data[, paste(form, model, file, sep = "_")]
+
+    which_row <- which(temp_feature == all_features)
+
+    if (length(which_row) != 0) {
+      print("There is an exsiting entry in the current input data that is identical. Overriding the entry.")
+      ex_Rx_data$data[[which_row]] <- temp_input_data
     } else {
-      # === find the largest Rx. suffix number ===#
-      Rx_num_e <-
-        dplyr::select(w_data, starts_with("Rx.")) %>%
-        names() %>%
-        gsub("Rx.", "", .) %>%
-        as.numeric() %>%
-        max()
-      Rx_num <- Rx_num_e + 1
-      eval(parse(text = paste("w_data[, Rx.", Rx_num, ":= list(temp_Rx_data)]", sep = "")))
+      print("There is no exsiting entry in the current input data. Adding the entry.")
+      ex_Rx_data <- rbind(ex_Rx_data, tibble(data = list(temp_Rx_data)))
     }
   }
+
+  w_data <-
+    as_tibble(w_data) %>%
+    rowwise() %>%
+    mutate(Rx_data = list(
+      as.data.frame(ex_Rx_data)
+    ))
 
   out_data <-
     rbind(
@@ -426,13 +446,16 @@ add_Rx <- function(json_file, farm, field, year, Rx_data) {
   )
 }
 
+
 # /*=================================================*/
 #' # Add External Data
 # /*=================================================*/
 
 # json_file <- "metadata.json"
 
-add_Ex <- function(json_file, ffy, Ex_data) {
+add_Ex <- function(json_file, farm, field, year, Ex_data) {
+  ffy <- paste(farm, field, year, sep = "_")
+
   existing_data <-
     here("Data", "CommonData", json_file) %>%
     jsonlite::fromJSON(., flatten = TRUE) %>%
@@ -448,18 +471,25 @@ add_Ex <- function(json_file, ffy, Ex_data) {
     break
   }
 
-  ex_Ex_data <-
-    w_data$Ex_data[[1]] %>%
-    rowwise() %>%
-    mutate(data = list(
-      data %>%
-        data.table() %>%
-        .[, feature := paste(file, paste(vars[[1]], collapse = "_"), var_name_prefix, sep = "_")]
-    ))
+  ex_Ex_data_temp <- w_data$Ex_data[[1]]
 
-  all_features <-
-    map(ex_Ex_data$data, "feature") %>%
-    unlist()
+  if (length(ex_Ex_data_temp) > 0) { # if there is at least one existing entry
+    ex_Ex_data <-
+      ex_Ex_data_temp %>%
+      rowwise() %>%
+      mutate(data = list(
+        data %>%
+          data.table() %>%
+          .[, feature := paste(file, paste(vars[[1]], collapse = "_"), var_name_prefix, sep = "_")]
+      ))
+
+    all_features <-
+      map(ex_Ex_data$data, "feature") %>%
+      unlist()
+  } else {
+    ex_Ex_data <- NULL
+    all_features <- NA
+  }
 
   for (i in 1:nrow(Ex_data)) {
     temp_Ex_data <-
@@ -482,7 +512,7 @@ add_Ex <- function(json_file, ffy, Ex_data) {
   w_data <-
     as_tibble(w_data) %>%
     rowwise() %>%
-    mutate(input_data = list(
+    mutate(Ex_data = list(
       as.data.frame(ex_Ex_data)
     ))
 

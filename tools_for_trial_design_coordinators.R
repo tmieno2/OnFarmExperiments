@@ -29,10 +29,10 @@ field_data <-
 # /*=================================================*/
 #--- create an field parameter entry for a farm-field-year ---#
 initiate_fp_entry(
-  farm = "MMUR",
+  farm = "NTHO",
   field = "1",
   year = 2021,
-  crop = "wheat",
+  crop = "corn",
   json_file = "metadata"
 )
 
@@ -58,6 +58,22 @@ input_data <-
     var_name_prefix = c("none", "FA1", "HF1")
   )
 
+#--- Laila working version ---#
+input_data <-
+  data.table(
+    form = c("NH3", "N_equiv", "UAN32"),
+    product = c("NH3", "MAP", "UAN32"),
+    strategy = c("trial", "base", "trial"),
+    file_name = c("21_NTHO_C_ML_FA1", NA, "21_NTHO_C_ML_FA2"),
+    unit = c("lbs", "lbs", "gallons"),
+    date = c("12/21/2020", "mm/dd/yyyy", "06/10/2021"),
+    Rx_data = c("none", "none", "none"),
+    machine_width = c(30, NA, 30),
+    rate = c(NA, 11, NA),
+    var_name_prefix = c("FA1", "none", "FA2")
+  )
+
+
 #--- add inputs data (as the details of the trial gets clear) ---#
 
 add_inputs(
@@ -67,6 +83,16 @@ add_inputs(
   year = "2021",
   input_data = input_data
 )
+
+#--- Laila working version ---#
+add_inputs(
+  json_file = "metadata.json",
+  farm = "NTHO",
+  field = "1",
+  year = "2021",
+  input_data = input_data
+)
+
 
 # /*----------------------------------*/
 #' ## Add Rx information
@@ -86,6 +112,24 @@ add_Rx(
   year = "2021",
   Rx_data = Rx_data
 )
+
+#--- Laila working version ---#
+Rx_data <-
+  data.table(
+    form = c("UAN32"),
+    model = c("granular"),
+    file = c("21_NTHO_C_ML_GRX.shp"),
+    date = c("04/01/2021")
+  )
+
+add_Rx(
+  json_file = "metadata.json",
+  farm = "NTHO",
+  field = "1",
+  year = "2021",
+  Rx_data = Rx_data
+)
+
 
 # /*----------------------------------*/
 #' ## Add Ex information
