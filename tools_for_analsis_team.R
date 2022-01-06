@@ -28,7 +28,7 @@ field_year_ls <- field_data$field_year
 # /*=================================================*/
 # make_data_report()
 
-ffy <- field_year_ls[3]
+ffy <- field_year_ls[4]
 
 # /*----------------------------------*/
 #' ## Non-experiment Data
@@ -52,6 +52,7 @@ get_ne_data(
 #--- individually ---#
 exp_process_make_report(
   ffy = ffy,
+  ol_yield_sd_factor = 4, # you can change this number here
   rerun = TRUE,
   locally_run = FALSE
 )

@@ -163,7 +163,7 @@ tm_shape(trd_polygons) +
 ### Flag yield outliers by treatment block
 
 ```{r }
-sd_factor <- 4
+sd_factor <- params$ol_yield_sd_factor
 
 yield_trd <-
   yield_grouped %>%

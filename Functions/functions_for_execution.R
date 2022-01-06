@@ -3,7 +3,6 @@
 # /*=================================================*/
 
 get_ne_data <- function(ffy, rerun = FALSE, locally_run = FALSE) {
-
   library(knitr)
   options(knitr.duplicate.label = "allow")
 
@@ -67,7 +66,7 @@ get_ne_data <- function(ffy, rerun = FALSE, locally_run = FALSE) {
 #' # Experiment data processing and reporting
 # /*=================================================*/
 
-exp_process_make_report <- function(ffy, rerun = FALSE, locally_run = FALSE) {
+exp_process_make_report <- function(ffy, ol_yield_sd_factor = 4, rerun = FALSE, locally_run = FALSE) {
   library(knitr)
   options(knitr.duplicate.label = "allow")
 
@@ -171,7 +170,12 @@ exp_process_make_report <- function(ffy, rerun = FALSE, locally_run = FALSE) {
 
   purl(exp_report_rmd_file_name, output = exp_report_r_file_name)
 
-  render(exp_report_rmd_file_name)
+  params_ls <- 
+    list(
+      ol_yield_sd_factor = ol_yield_sd_factor
+    )
+
+  render(exp_report_rmd_file_name, params = params_ls)
 }
 
 # /*=================================================*/
@@ -903,8 +907,8 @@ get_trial_parameter <- function(ffy) {
   w_year <- w_field_data$year
 
   # === Input data ===#
-  input_data <- 
-    w_field_data$input_data[[1]]$data %>% 
+  input_data <-
+    w_field_data$input_data[[1]]$data %>%
     rbindlist(fill = TRUE)
 
   # === Rx data ===#
@@ -912,7 +916,7 @@ get_trial_parameter <- function(ffy) {
 
   if (!is.null(rx_exists)) {
     rx_data <-
-      w_field_data$Rx_data[[1]]$data %>% 
+      w_field_data$Rx_data[[1]]$data %>%
       rbindlist(fill = TRUE)
   } else {
     rx_data <- NA
@@ -923,7 +927,7 @@ get_trial_parameter <- function(ffy) {
 
   if (!is.null(ex_exists)) {
     ex_data <-
-      w_field_data$Ex_data[[1]]$data %>% 
+      w_field_data$Ex_data[[1]]$data %>%
       rbindlist(fill = TRUE)
   } else {
     ex_data <- NA
