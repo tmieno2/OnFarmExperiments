@@ -10,6 +10,7 @@ output:
 params: 
   topography: false
   ssurgo: false
+  ol_yield_sd_factor: ol_yield_sd_factor_here
 ---
 
 <style type="text/css">

@@ -133,7 +133,8 @@ exp_process_make_report <- function(ffy, ol_yield_sd_factor = 4, rerun = FALSE, 
   exp_rmd_yiy <-
     c(exp_rmd_yi, e03) %>%
     gsub("field-year-here", ffy, .) %>%
-    gsub("title-here", "Experiment Data Processing Report", .)
+    gsub("title-here", "Experiment Data Processing Report", .) %>%
+    gsub("ol_yield_sd_factor_here", ol_yield_sd_factor, .)
 
   # /*=================================================*/
   #' # Remove cached files if rerun == TRUE
@@ -170,12 +171,7 @@ exp_process_make_report <- function(ffy, ol_yield_sd_factor = 4, rerun = FALSE, 
 
   purl(exp_report_rmd_file_name, output = exp_report_r_file_name)
 
-  params_ls <- 
-    list(
-      ol_yield_sd_factor = ol_yield_sd_factor
-    )
-
-  render(exp_report_rmd_file_name, params = params_ls)
+  render(exp_report_rmd_file_name)
 }
 
 # /*=================================================*/
