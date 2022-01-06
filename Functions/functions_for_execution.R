@@ -66,7 +66,7 @@ get_ne_data <- function(ffy, rerun = FALSE, locally_run = FALSE) {
 #' # Experiment data processing and reporting
 # /*=================================================*/
 
-exp_process_make_report <- function(ffy, ol_yield_sd_factor = 4, rerun = FALSE, locally_run = FALSE) {
+exp_process_make_report <- function(ffy, ol_yield_sd_factor = 4, overlap_acceptance_pct = 0.1, rerun = FALSE, locally_run = FALSE) {
   library(knitr)
   options(knitr.duplicate.label = "allow")
 
@@ -134,7 +134,8 @@ exp_process_make_report <- function(ffy, ol_yield_sd_factor = 4, rerun = FALSE, 
     c(exp_rmd_yi, e03) %>%
     gsub("field-year-here", ffy, .) %>%
     gsub("title-here", "Experiment Data Processing Report", .) %>%
-    gsub("ol_yield_sd_factor_here", ol_yield_sd_factor, .)
+    gsub("ol_yield_sd_factor_here", ol_yield_sd_factor, .) %>%
+    gsub("overlap_acceptance_pct_here", overlap_acceptance_pct, .)
 
   # /*=================================================*/
   #' # Remove cached files if rerun == TRUE

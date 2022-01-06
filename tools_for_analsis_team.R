@@ -53,6 +53,7 @@ get_ne_data(
 exp_process_make_report(
   ffy = ffy,
   ol_yield_sd_factor = 4, # you can change this number here
+  overlap_acceptance_pct = 0.1,
   rerun = TRUE,
   locally_run = FALSE
 )
