@@ -409,7 +409,8 @@ if (is_aa_input_polygon) { #* if as-applied rate is in polygon
       }
     ) %>%
     do.call("c", .) %>%
-    st_as_sfc()
+    st_as_sfc() %>%
+    st_make_valid()
 
   #--- combine with the data ---#
   aa_input_sf <-

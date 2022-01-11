@@ -61,16 +61,16 @@ input_data <-
 #--- Laila working version ---#
 input_data <-
   data.table(
-    form = c("N_equiv", "UAN32", "UAN32"),
-    product = c("MAP", "UAN32", "UAN32"),
-    strategy = c("base","trial", "trial"),
-    file_name = c(NA, "21_MDIB_C_ML_FA1", "21_MDIB_C_ML_HF1"),
-    unit = c("lbs", "gallons", "gallons"),
-    date = c("mm/dd/yyyy", "04/12/2021", "06/28/2021"),
+    form = c("UAN32", "N_equiv", "UAN32"),
+    product = c("UAN32", "UAN32", "UAN32"),
+    strategy = c("trial","base", "trial"),
+    file_name = c("21_DBAT_C_ML_FA1",NA,"21_DBAT_C_ML_FA2"),
+    unit = c("gallons", "lbs", "gallons"),
+    date = c("04/10/2021", "04/30/2021", "06/18/2021"),
     Rx_data = c("none", "none", "none"),
-    machine_width = c(NA,40, 40),
-    rate = c(16.5, NA, NA),
-    var_name_prefix = c("none", "FA1", "HF1")
+    machine_width = c(30,NA, 60),
+    rate = c(NA, 35, NA),
+    var_name_prefix = c("FA1", "none", "FA2")
   )
 
 
@@ -87,7 +87,7 @@ add_inputs(
 #--- Laila working version ---#
 add_inputs(
   json_file = "metadata.json",
-  farm = "MDIB",
+  farm = "DBAT",
   field = "1",
   year = "2021",
   input_data = input_data
@@ -117,14 +117,14 @@ add_Rx(
 Rx_data <-
   data.table(
     form = c("UAN32"),
-    model = c("AdaptN"),
-    file = c("21_MDIB_C_ML_ADX.shp"),
-    date = c("06/28/2021")
+    model = c("granular"),
+    file = c("21_DBAT_C_ML_GRX.shp"),
+    date = c("06/18/2021")
   )
 
 add_Rx(
   json_file = "metadata.json",
-  farm = "MDIB",
+  farm = "DBAT",
   field = "1",
   year = "2021",
   Rx_data = Rx_data
