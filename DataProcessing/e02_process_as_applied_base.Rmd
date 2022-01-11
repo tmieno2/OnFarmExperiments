@@ -7,6 +7,7 @@
 ```{r Reading-as-applied-n-data}
 input_type <- "input_type_here"
 input_form <- "input_form_here"
+input_id <- "input_id_here"
 input_unit <- "input_unit_here"
 reporting_unit <- "reporting_unit_here"
 machine_width <- as.numeric("machine_width_here")
@@ -458,7 +459,7 @@ aa_input_sf <-
 #* save
 here(
   "Data/Growers", ffy, "Intermediate",
-  paste0("aa-", input_type, "-", input_form, ".rds")
+  paste0("aa-", input_type, "-", input_form, "-", input_id, ".rds")
 ) %>%
   saveRDS(aa_input_sf, .)
 ```

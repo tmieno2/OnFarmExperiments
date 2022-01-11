@@ -106,6 +106,7 @@ exp_process_make_report <- function(ffy, ol_yield_sd_factor = 4, overlap_accepta
           input_type = input_type,
           data_file = file_name,
           input_form = form,
+          input_id = input_id,
           reporting_unit = reporting_unit,
           input_unit = unit,
           machine_width = machine_width,
@@ -847,7 +848,7 @@ get_td_text <- function(input_type, gc_type, locally_run = FALSE) {
   return(td_rmd)
 }
 
-prepare_e02_rmd <- function(input_type, use_td = FALSE, data_file, input_form, reporting_unit, input_unit, machine_width, locally_run = FALSE) {
+prepare_e02_rmd <- function(input_type, use_td = FALSE, data_file, input_form, input_id, reporting_unit, input_unit, machine_width, locally_run = FALSE) {
   if (!use_td) {
     return_rmd <-
       read_rmd(
@@ -862,6 +863,7 @@ prepare_e02_rmd <- function(input_type, use_td = FALSE, data_file, input_form, r
       ) %>%
       gsub("data_file_name_here", paste0(data_file, ".shp"), .) %>%
       gsub("input_form_here", input_form, .) %>%
+      gsub("input_id_here", input_id, .) %>%
       gsub("reporting_unit_here", reporting_unit, .) %>%
       gsub("input_unit_here", input_unit, .) %>%
       gsub("machine_width_here", machine_width, .)
@@ -906,7 +908,8 @@ get_trial_parameter <- function(ffy) {
   # === Input data ===#
   input_data <-
     w_field_data$input_data[[1]]$data %>%
-    rbindlist(fill = TRUE)
+    rbindlist(fill = TRUE) %>%
+    .[, input_id := 1:.N]
 
   # === Rx data ===#
   rx_exists <- w_field_data$Rx_data[[1]] %>% nrow()
@@ -961,7 +964,7 @@ get_trial_parameter <- function(ffy) {
   input_data_trial <-
     input_data[
       strategy == "trial",
-      .(form, machine_width, unit, file_name, Rx_data, var_name_prefix)
+      .(form, input_id, machine_width, unit, file_name, Rx_data, var_name_prefix)
     ] %>%
     .[, input_type := NA] %>%
     .[, input_type := ifelse(form == "seed", "S", input_type)] %>%
