@@ -377,7 +377,9 @@ yield_input_data <-
   yield_input_data_pre %>%
   pull(input_pct_data_out) %>%
   reduce(full_join, by = "yield_id") %>%
-  inner_join(yield_polygons, ., by = "yield_id")
+  inner_join(yield_polygons, ., by = "yield_id") %>%
+  # === add base n-rate column ===#
+  mutate(n_base = n_base)
 ```
 
 ### Detailed data for inspection
