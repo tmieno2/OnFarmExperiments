@@ -28,7 +28,7 @@ input_polygons <-
   mutate(
     input_file_name = here(
       "Data/Growers", ffy, "Intermediate",
-      paste0("aa-", input_type, "-", input_form, "-", input_id, ".rds")
+      paste0("aa-", input_type, "-", form, "-", input_id, ".rds")
     )
   ) %>%
   # === input ===#

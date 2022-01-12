@@ -29,7 +29,7 @@ field_data <-
 # /*=================================================*/
 #--- create an field parameter entry for a farm-field-year ---#
 initiate_fp_entry(
-  farm = "DBAT",
+  farm = "JWAL",
   field = "1",
   year = 2021,
   crop = "corn",
@@ -61,16 +61,16 @@ input_data <-
 #--- Laila working version ---#
 input_data <-
   data.table(
-    form = c("UAN32", "N_equiv", "UAN32"),
+    form = c("UAN32", "UAN32", "N_equiv"),
     product = c("UAN32", "UAN32", "UAN32"),
-    strategy = c("trial","base", "trial"),
-    file_name = c("21_DBAT_C_ML_FA1",NA,"21_DBAT_C_ML_FA2"),
-    unit = c("gallons", "lbs", "gallons"),
-    date = c("04/10/2021", "04/30/2021", "06/18/2021"),
+    strategy = c("trial","trial", "base"),
+    file_name = c("21_JWAL_C_ML_FA1","21_JWAL_C_ML_FA2", NA),
+    unit = c("gallons", "gallons", "lbs"),
+    date = c("05/10/2021", "06/25/2021", "07/01/2021"),
     Rx_data = c("none", "none", "none"),
-    machine_width = c(30,NA, 60),
-    rate = c(NA, 35, NA),
-    var_name_prefix = c("FA1", "none", "FA2")
+    machine_width = c(30,30, NA),
+    rate = c(NA, NA, 25),
+    var_name_prefix = c("FA1", "FA2", "none")
   )
 
 
@@ -118,8 +118,8 @@ Rx_data <-
   data.table(
     form = c("UAN32"),
     model = c("granular"),
-    file = c("21_DBAT_C_ML_GRX.shp"),
-    date = c("06/18/2021")
+    file = c("21_JWAL_C_ML_GRX.shp"),
+    date = c("06/25/2021")
   )
 
 add_Rx(
@@ -159,6 +159,16 @@ Ex_data <-
     vars = list(c("NDRE")),
     var_name_prefix = c("HF1")
   )
+
+Ex_data <-
+  data.table(
+    data_type = c("MZ"),
+    file = c("21_MDIB_C_ML_MZ.shp"),
+    date = c("06/28/2021"),
+    vars = list(c("Id", "Zone", "Yield", "EY")),
+    var_name_prefix = c("MZ")
+  )
+
 
 add_Ex(
   json_file = "metadata.json",
