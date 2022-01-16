@@ -300,17 +300,25 @@ aa_input_trd <-
   arrange(aa_id) %>%
   data.table() %>%
   #* flag outliers by treatment block
-  nest_by(trd_id, group) %>%
+  nest_by(trd_id, group, Trt) %>%
   mutate(
     median_input_rate =
       median(data$input_rate, na.rm = TRUE)
   ) %>%
   mutate(data = list(
-    mutate(data, ol_input_rate = ifelse(
-      input_rate > median_input_rate * (1.1) | input_rate < median_input_rate * (0.9),
-      1, 0
-    )) %>%
-      mutate(ol_input_rate = ifelse(Trt != "N_Ramp" | is.na(Trt), 0, ol_input_rate))
+    if (Trt == "N_ramp" & !is.na(Trt)) {
+      mutate(data, ol_input_rate = ifelse(
+        input_rate > median_input_rate * (1.1) | input_rate < median_input_rate * (0.9),
+        1, 0
+      ))
+    } else {
+      flag_bad_points(
+        data = data,
+        var_name = "input_rate",
+        sd_factor = sd_factor,
+        upper = TRUE
+      )
+    }
   )) %>%
   unnest() %>%
   data.table() %>%
