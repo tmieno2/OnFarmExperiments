@@ -29,10 +29,10 @@ field_data <-
 # /*=================================================*/
 #--- create an field parameter entry for a farm-field-year ---#
 initiate_fp_entry(
-  farm = "JWAL",
+  farm = "DHEG",
   field = "1",
   year = 2021,
-  crop = "corn",
+  crop = "wheat",
   json_file = "metadata"
 )
 
@@ -61,16 +61,16 @@ input_data <-
 #--- Laila working version ---#
 input_data <-
   data.table(
-    form = c("UAN32", "UAN32", "N_equiv"),
-    product = c("UAN32", "UAN32", "UAN32"),
-    strategy = c("trial","trial", "base"),
-    file_name = c("21_JWAL_C_ML_FA1","21_JWAL_C_ML_FA2", NA),
-    unit = c("gallons", "gallons", "lbs"),
-    date = c("05/10/2021", "06/25/2021", "07/01/2021"),
-    Rx_data = c("none", "none", "none"),
-    machine_width = c(30,30, NA),
-    rate = c(NA, NA, 25),
-    var_name_prefix = c("FA1", "FA2", "none")
+    form = c("N_equiv", "UREA46", "UAN28", "UAN28"),
+    product = c("10030", "UREA46", "UAN28", "UAN28"),
+    strategy = c("base","trial", "trial", "trial"),
+    file_name = c(NA,"21_DHEG_W_SN_FA2", "21_DHEG_W_SN_FA3", "21_DHEG_W_SN_HF1"),
+    unit = c("lbs", "lbs","gallons","gallons"),
+    date = c("04/03/2021","04/03/2021", "05/07/2021", "05/07/2021"),
+    Rx_data = c("none", "none", "none", "none"),
+    machine_width = c(NA,60, 120, 40),
+    rate = c(10, NA, NA, NA),
+    var_name_prefix = c("none","FA2", "FA3", "HF1")
   )
 
 
@@ -78,7 +78,7 @@ input_data <-
 
 add_inputs(
   json_file = "metadata.json",
-  farm = "MMUR",
+  farm = "KMED2",
   field = "1",
   year = "2021",
   input_data = input_data
@@ -87,7 +87,7 @@ add_inputs(
 #--- Laila working version ---#
 add_inputs(
   json_file = "metadata.json",
-  farm = "DBAT",
+  farm = "DHEG",
   field = "1",
   year = "2021",
   input_data = input_data
@@ -118,13 +118,13 @@ Rx_data <-
   data.table(
     form = c("UAN32"),
     model = c("granular"),
-    file = c("21_JWAL_C_ML_GRX.shp"),
-    date = c("06/25/2021")
+    file = c("21_KMED2_GRX.shp"),
+    date = c("06/17/2021")
   )
 
 add_Rx(
   json_file = "metadata.json",
-  farm = "DBAT",
+  farm = "KMED2",
   field = "1",
   year = "2021",
   Rx_data = Rx_data
@@ -154,11 +154,12 @@ add_Ex(
 Ex_data <-
   data.table(
     data_type = c("NDRE"),
-    file = c("21_MDIB_C_ML_HF1.shp"),
-    date = c("06/28/2021"),
+    file = c("21_RCEC_W_SN_HF1.shp"),
+    date = c("05/07/2021"),
     vars = list(c("NDRE")),
     var_name_prefix = c("HF1")
   )
+
 
 Ex_data <-
   data.table(
@@ -170,9 +171,10 @@ Ex_data <-
   )
 
 
+
 add_Ex(
   json_file = "metadata.json",
-  farm = "MDIB",
+  farm = "RCEC",
   field = "1",
   year = "2021",
   Ex_data = Ex_data

@@ -309,7 +309,8 @@ aa_input_trd <-
     mutate(data, ol_input_rate = ifelse(
       input_rate > median_input_rate * (1.1) | input_rate < median_input_rate * (0.9),
       1, 0
-    ))
+    )) %>%
+      mutate(ol_input_rate = ifelse(Trt != "N_Ramp" | is.na(Trt), 0, ol_input_rate))
   )) %>%
   unnest() %>%
   data.table() %>%
@@ -393,7 +394,6 @@ if (is_aa_input_polygon) { #* if as-applied rate is in polygon
     rename(aa_input_id = aa_id) %>%
     st_as_sf() %>%
     st_make_valid()
-    
 } else {
   #--- prepare parallel computation ---#
   plan(multiprocess, workers = detectCores() - 2)
@@ -427,7 +427,6 @@ if (is_aa_input_polygon) { #* if as-applied rate is in polygon
     filter(!st_is_empty(.)) %>%
     dplyr::select(aa_input_id, input_rate, ol_input_rate)
 }
-
 ```
 
 ```{r }
