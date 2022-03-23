@@ -290,7 +290,20 @@ yield_input_data <-
 ### Detailed data for inspection
 
 ```{r }
-dt_trd_int <- tibble(type = "trial-design", int_info = list(yield_trd))
+yield_trd <-
+  readRDS(
+    here(
+      "Data/Growers",
+      ffy,
+      "Intermediate/yield_trd.rds"
+    )
+  )
+
+dt_trd_int <-
+  tibble(
+    type = "trial-design",
+    int_info = list(yield_trd)
+  )
 
 dt_input_int <-
   input_pct %>%
