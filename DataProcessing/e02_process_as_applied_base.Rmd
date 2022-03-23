@@ -267,113 +267,131 @@ tm_shape(aa_input_grouped) +
 
 ## Check if points are missing for the area with target rate of zero
 
+ 
 ```{r }
-Rx_data <-
+w_Rx_data <-
   trial_info %>%
   .$input_data_trial %>%
   filter(input_id == w_input_id) %>%
-  pull(Rx_data) %>%
-  here("Data/Growers", ffy, "Raw", .) %>%
-  st_read() %>%
-  setnames(input_form, "tgt_input") %>%
-  filter(tgt_input == 0) %>%
-  st_transform(st_crs(aa_input_grouped)) %>%
-  mutate(rx_id := 1:n()) %>%
-  mutate(area = st_area(.) %>% as.numeric())
+  pull(Rx_data)
 
-zero_rx_id <-
-  st_intersection(Rx_data, aa_input_grouped) %>%
-  data.table() %>%
-  .[, .(density = .N / mean(area)), by = rx_id] %>%
-  .[density < median(density) * 0.3, ] %>%
-  .[, rx_id]
+if (w_Rx_data != "none") { # if Rx data exists
 
-zero_tgt_polygons <-
-  filter(Rx_data, rx_id %in% zero_rx_id) %>%
-  st_buffer(actual_machine_width / 8)
+  #* Check if there are polygons with targer rate of zero
+  Rx_data <-
+    trial_info %>%
+    .$input_data_trial %>%
+    filter(input_id == "3") %>%
+    pull(Rx_data) %>%
+    here("Data/Growers", ffy, "Raw", .) %>%
+    st_read() %>%
+    setnames(input_form, "tgt_input") %>%
+    filter(tgt_input == 0) %>%
+    st_transform(st_crs(aa_input_grouped)) %>%
+    mutate(rx_id := 1:n()) %>%
+    mutate(area = st_area(.) %>% as.numeric())
 
-#* which groups of points are intersecting the zero-rate Rx polygons?
-rx_group_ls <-
-  st_intersection(aa_input_grouped, zero_tgt_polygons) %>%
-  data.table() %>%
-  .[, .(rx_id, group)] %>%
-  unique(by = c("rx_id", "group")) %>%
-  setnames("group", "w_group")
+  #* Check which Rx polygons do not have regular number of points
+  zero_rx_id <-
+    st_intersection(Rx_data, aa_input_grouped) %>%
+    data.table() %>%
+    .[, .(density = .N / mean(area)), by = rx_id] %>%
+    .[density < median(density) * 0.3, ] %>%
+    .[, rx_id]
+} else {
+  zero_rx_id <- NULL
+}
 
-# ggplot() +
-#   geom_sf(data = zero_tgt_polygons) +
-#   geom_sf(data = points_filling$seq_points[[2]]) +
-#   geom_sf(data = points_filling$origin[[2]], color = "red") +
-#   geom_sf(data = points_filling$int_seq_rx[[2]], color = "blue")
+if (length(zero_rx_id) != 0) {
+  #* if points are missing in the zero-rate polygons
+  zero_tgt_polygons <-
+    filter(Rx_data, rx_id %in% zero_rx_id) %>%
+    st_buffer(actual_machine_width / 8)
 
-points_filling <-
-  rx_group_ls %>%
-  rowwise() %>%
-  left_join(., Rx_data, by = "rx_id") %>%
-  mutate(point_data = list(
-    filter(aa_input_grouped, group == w_group) %>%
-      data.table()
-  )) %>%
-  mutate(origin = list(
-    point_data %>%
-      arrange(original_order_id) %>%
-      slice(n()) %>%
-      .$geometry
-  )) %>%
-  #* vector of direction (5 times more sparse)
-  mutate(dir_vect = list(
-    point_data[, .(median(diff(X)), median(diff(Y)))] %>%
-      unlist()
-  )) %>%
-  mutate(dist_between_points = list(
-    sum(dir_vect^2) %>% sqrt()
-  )) %>%
-  mutate(length = list(
-    sqrt((field_bbox["xmax"] - field_bbox["xmin"])^2 + (field_bbox["ymax"] - field_bbox["ymin"])^2)
-  )) %>%
-  mutate(seq_points = list(
-    make_seq_points(origin, dir_vect, length)
-  )) %>%
-  #* manufactured data points that are inside the zero-rate Rx polygon
-  mutate(int_seq_rx = list(
-    st_intersection(geometry, seq_points) %>%
-      st_as_sf() %>%
-      data.table() %>%
-      .[, m_point_id := 1:.N] %>%
-      st_as_sf()
-  )) %>%
-  mutate(int_nums = nrow(int_seq_rx)) %>%
-  data.table() %>%
-  .[, .SD[which.max(int_nums)], by = rx_id] %>%
-  rowwise() %>%
-  mutate(points_to_remove = list(
-    st_intersection(aa_input_grouped, geometry) %>%
-      st_buffer(dist_between_points / 2) %>%
-      #* which of the manufactured data points are close to the existing data points
-      st_intersection(int_seq_rx, .) %>%
-      data.table() %>%
-      .[, unique(m_point_id)]
-  )) %>%
-  mutate(points_to_add = list(
-    filter(int_seq_rx, !(m_point_id %in% points_to_remove)) %>%
-      cbind(., st_coordinates(.)) %>%
-      data.table()
-  )) %>%
-  mutate(num_points_to_add = nrow(points_to_add)) %>%
-  filter(num_points_to_add != 0) %>%
-  mutate(points_to_add = list(
-    mutate(points_to_add, group = paste0("m_", rx_id), new_group = paste0("m_", rx_id))
-  )) %>%
-  pull(points_to_add) %>%
-  rbindlist() %>%
-  .[, input_rate := 0] %>%
-  setnames("x", "geometry") %>%
-  .[, width := median(aa_input_grouped$width)]
+  #* which groups of points are intersecting the zero-rate Rx polygons?
+  rx_group_ls <-
+    st_intersection(aa_input_grouped, zero_tgt_polygons) %>%
+    data.table() %>%
+    .[, .(rx_id, group)] %>%
+    unique(by = c("rx_id", "group")) %>%
+    setnames("group", "w_group")
 
-aa_input_grouped <-
-  rbind(data.table(aa_input_grouped), points_filling, fill = TRUE) %>%
-  st_as_sf() %>%
-  mutate(aa_id = 1:n())
+  # ggplot() +
+  #   geom_sf(data = zero_tgt_polygons) +
+  #   geom_sf(data = points_filling$seq_points[[2]]) +
+  #   geom_sf(data = points_filling$origin[[2]], color = "red") +
+  #   geom_sf(data = points_filling$int_seq_rx[[2]], color = "blue")
+
+  points_filling <-
+    rx_group_ls %>%
+    rowwise() %>%
+    left_join(., Rx_data, by = "rx_id") %>%
+    mutate(point_data = list(
+      filter(aa_input_grouped, group == w_group) %>%
+        data.table()
+    )) %>%
+    mutate(origin = list(
+      point_data %>%
+        arrange(original_order_id) %>%
+        slice(n()) %>%
+        .$geometry
+    )) %>%
+    #* vector of direction (5 times more sparse)
+    mutate(dir_vect = list(
+      point_data[, .(median(diff(X)), median(diff(Y)))] %>%
+        unlist()
+    )) %>%
+    mutate(dist_between_points = list(
+      sum(dir_vect^2) %>% sqrt()
+    )) %>%
+    mutate(length = list(
+      sqrt((field_bbox["xmax"] - field_bbox["xmin"])^2 + (field_bbox["ymax"] - field_bbox["ymin"])^2)
+    )) %>%
+    mutate(seq_points = list(
+      make_seq_points(origin, dir_vect, length)
+    )) %>%
+    #* manufactured data points that are inside the zero-rate Rx polygon
+    mutate(int_seq_rx = list(
+      st_intersection(geometry, seq_points) %>%
+        st_as_sf() %>%
+        data.table() %>%
+        .[, m_point_id := 1:.N] %>%
+        st_as_sf()
+    )) %>%
+    mutate(int_nums = nrow(int_seq_rx)) %>%
+    data.table() %>%
+    .[, .SD[which.max(int_nums)], by = rx_id] %>%
+    rowwise() %>%
+    mutate(points_to_remove = list(
+      st_intersection(aa_input_grouped, geometry) %>%
+        st_buffer(dist_between_points / 2) %>%
+        #* which of the manufactured data points are close to the existing data points
+        st_intersection(int_seq_rx, .) %>%
+        data.table() %>%
+        .[, unique(m_point_id)]
+    )) %>%
+    mutate(points_to_add = list(
+      filter(int_seq_rx, !(m_point_id %in% points_to_remove)) %>%
+        cbind(., st_coordinates(.)) %>%
+        data.table()
+    )) %>%
+    mutate(num_points_to_add = nrow(points_to_add)) %>%
+    filter(num_points_to_add != 0) %>%
+    mutate(points_to_add = list(
+      mutate(points_to_add, group = paste0("m_", rx_id), new_group = paste0("m_", rx_id))
+    )) %>%
+    pull(points_to_add) %>%
+    rbindlist() %>%
+    .[, input_rate := 0] %>%
+    setnames("x", "geometry") %>%
+    .[, width := median(aa_input_grouped$width)]
+
+  aa_input_grouped <-
+    rbind(data.table(aa_input_grouped), points_filling, fill = TRUE) %>%
+    st_as_sf() %>%
+    mutate(aa_id = 1:n())
+}
+
 
 # ggplot() +
 #   geom_sf(data = zero_tgt_polygons) +
