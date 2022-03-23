@@ -5,6 +5,7 @@
 ### As-applied data
 
 ```{r Reading-as-applied-n-data}
+sd_factor <- ol_sd_factor_here
 input_type <- "input_type_here"
 input_form <- "input_form_here"
 w_input_id <- "input_id_here"

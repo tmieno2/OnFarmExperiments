@@ -57,7 +57,10 @@ process_yield(
   ol_yield_sd_factor = 4
 )
 
-process_input(ffy = ffy)
+process_input(
+  ffy = ffy
+  ol_sd_factor = 4
+)
 
 merge_yield_input(
   ffy,

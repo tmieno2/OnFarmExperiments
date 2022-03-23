@@ -115,75 +115,6 @@ tm_alignment <-
 tm_alignment$tm_map
 ```
 
-## Missing input data points due to 0 target rate
-
-+ 1. (polygon 1): find the portions of the field where target N rate is 0
-
-+ 2. (polygon 2) intersect existing as-applied N points with (1) to identify polygons where as-applied data-points are missing
-
-+ 3. intersect the yield polygons with polygon 2 to flag whether application was zero, but not missing
-
-```{r }
-#* check if rx data files are available for missing points problem
-num_rx_data <-
-  input_polygons %>%
-  filter(Rx_data != "none") %>%
-  nrow()
-
-if (num_rx_data != 0) {
-  rx_no_aa_data <-
-    input_polygons %>%
-    filter(Rx_data != "none") %>%
-    mutate(rx_polygons = list(
-      rx_polygons %>%
-        mutate(area = as.numeric(st_area(.))) %>%
-        setnames(form, "tgt") %>%
-        mutate(tgt = as.numeric(tgt))
-    )) %>%
-    mutate(input_centroid = list(
-      st_centroid(input_polygons)
-    )) %>%
-    mutate(rx_input = list(
-      st_join(
-        rx_polygons,
-        st_transform(input_centroid, st_crs(rx_polygons))
-      )
-    )) %>%
-    mutate(rx_nums = list(
-      data.table(rx_input)[, .(num_points = .N), by = rx_id]
-    )) %>%
-    mutate(rx_polygons = list(
-      left_join(rx_polygons, rx_nums, by = "rx_id") %>%
-        mutate(points_per_area = num_points / area)
-    )) %>%
-    mutate(rx_no_points = list(
-      rx_polygons %>%
-        filter(tgt == 0) %>%
-        filter(points_per_area < median(rx_polygons$points_per_area) * 0.3)
-    )) %>%
-    # mutate(gmap = list(
-    #   tm_shape(rx_polygons) +
-    #   tm_polygons(col = "points_per_area") +
-    #   tm_shape(input_centroid) +
-    #   tm_symbols(size = 0.1)
-    # )) %>%
-    dplyr::select(form, input_type, rx_no_points) %>%
-    mutate(rx_no_points = list(
-      if (nrow(rx_no_points) == 0) {
-        NULL
-      } else {
-        rx_no_points
-      }
-    ))
-} else {
-  rx_no_aa_data <-
-    data.table(
-      form = "999",
-      input_type = "999"
-    )
-}
-```
-
 ## Flag unreliable polygons
 
 ### Check the overlap and find area-weighted input rates
@@ -192,7 +123,6 @@ if (num_rx_data != 0) {
 
 input_pct <-
   input_polygons %>%
-  left_join(., rx_no_aa_data, by = c("form", "input_type")) %>%
   # === intersect yield and input polygons to check overlaps ===#
   mutate(yield_input_int = list(
     st_intersection(
@@ -202,29 +132,6 @@ input_pct <-
       # === percentage of overlap relative to the are of a yield polygon ===#
       mutate(sub_pct = as.numeric(st_area(.)) / yield_area) %>%
       data.table()
-  )) %>%
-  mutate(yield_input_int_rx = list(
-    if (Rx_data != "none") { #* if rx_data
-      if (!is.null(rx_no_points)) {
-        st_intersection(
-          dplyr::select(yield_polygons, yield_id, yield_area),
-          st_transform(rx_no_points, st_crs(yield_polygons))
-        ) %>%
-          # === percentage of overlap relative to the are of a yield polygon ===#
-          mutate(sub_pct = as.numeric(st_area(.)) / yield_area) %>%
-          data.table() %>%
-          .[, input_rate := 0] %>%
-          .[, ol_input_rate := 0] %>%
-          .[, .(yield_id, yield_area, input_rate, ol_input_rate, geometry, sub_pct)]
-      } else {
-        NULL
-      }
-    } else {
-      NULL
-    }
-  )) %>%
-  mutate(yield_input_int = list(
-    rbind(yield_input_int, yield_input_int_rx)
   )) %>%
   mutate(input_pct_data = list(
     copy(yield_input_int) %>%

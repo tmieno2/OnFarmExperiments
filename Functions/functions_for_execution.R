@@ -118,7 +118,7 @@ process_yield <- function(ffy, ol_yield_sd_factor = 4) {
 # /*===========================================================
 #' # Process Input Data
 # /*===========================================================
-process_input <- function(ffy) {
+process_input <- function(ffy, ol_sd_factor = 4) {
   library(knitr)
   options(knitr.duplicate.label = "allow")
 
@@ -158,7 +158,8 @@ process_input <- function(ffy) {
   input_rmd_full <-
     c(template_rmd, input_rmd) %>%
     gsub("field-year-here", ffy, .) %>%
-    gsub("title-here", "Input Data Processing Report", .)
+    gsub("title-here", "Input Data Processing Report", .) %>%
+    gsub("ol_sd_factor_here", ol_sd_factor, .)
 
   # /*=================================================*/
   #' # Write out the rmd and render
