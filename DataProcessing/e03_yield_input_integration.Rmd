@@ -2,6 +2,13 @@
 
 ## Preparation
 
+### Define some parameters
+
+```{r }
+overlap_acceptance_pct <- overlap_acceptance_pct_here
+max_dev_ls <- max_dev_here
+```
+
 ### Read datasets
 
 **Yield**
@@ -41,7 +48,8 @@ input_polygons <-
     } else {
       NULL
     }
-  ))
+  )) %>%
+  mutate(max_dev_allowed = list(max_dev_ls))
 ```
 
 ### Input polygons
@@ -298,25 +306,17 @@ ggplot() +
 ### Flag unreliable observations
 
 ```{r }
-max_dev_dt <- max_dev_table[crop == trial_info$crop, ]
-# === convert max_dev_table if in ha instead of ac ===#
-
-if (units == "metric") {
-  max_dev_dt[, max_dev_allowed := max_dev_allowed * 2.47105]
-}
-
 # === yield data after removing unreliable inputs ===#
 yield_input_data_pre <-
   input_pct %>%
   dplyr::select(input_type, var_name_prefix, form, input_pct_data) %>%
-  left_join(max_dev_dt, by = "input_type") %>%
   mutate(input_pct_data_pre = list(
     data.table::copy(input_pct_data) %>%
       # === 0 means within the threshold ===#
       #* if tot_sub_pct < 0.05, that can be considered GPS error
       .[, over_lap_test := fifelse(
-        (tot_sub_pct > (1 - params$overlap_acceptance_pct) &
-          tot_sub_pct < (1 + params$overlap_acceptance_pct)) |
+        (tot_sub_pct > (1 - overlap_acceptance_pct) &
+          tot_sub_pct < (1 + overlap_acceptance_pct)) |
           tot_sub_pct < 0.05,
         0,
         1

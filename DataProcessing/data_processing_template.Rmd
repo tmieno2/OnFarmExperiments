@@ -10,8 +10,6 @@ output:
 params: 
   topography: false
   ssurgo: false
-  ol_yield_sd_factor: ol_yield_sd_factor_here
-  overlap_acceptance_pct: overlap_acceptance_pct_here
 ---
 
 <style type="text/css">

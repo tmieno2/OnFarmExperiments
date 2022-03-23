@@ -28,7 +28,7 @@ field_year_ls <- field_data$field_year
 # /*=================================================*/
 # make_data_report()
 
-ffy <- field_year_ls[6]
+ffy <- field_year_ls[1]
 
 # /*----------------------------------*/
 #' ## Non-experiment Data
@@ -49,14 +49,23 @@ get_ne_data(
 #--- all fields ---#
 # lapply(field_year_ls, exp_process_make_report, rerun = TRUE)
 
-#--- individually ---#
-exp_process_make_report(
+trial_pars <- get_trial_parameter(ffy)
+trial_info <- trial_pars$input_data_trial
+
+process_yield(
   ffy = ffy,
-  ol_yield_sd_factor = 4, # you can change this number here
-  overlap_acceptance_pct = 0.1,
-  rerun = TRUE,
-  locally_run = FALSE
+  ol_yield_sd_factor = 4
 )
+
+process_input(ffy = ffy)
+
+merge_yield_input(
+  ffy,
+  overlap_acceptance_pct = 0.1,
+  max_dev_ls = c(10, 10, 10)
+)
+
+
 
 # /*----------------------------------*/
 #' ## Final Data Processing (Putting all altogether)

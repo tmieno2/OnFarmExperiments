@@ -62,11 +62,183 @@ get_ne_data <- function(ffy, rerun = FALSE, locally_run = FALSE) {
   render(nep_report_rmd_file_name)
 }
 
+
+# /*===========================================================
+#' # Process Yield Data
+# /*===========================================================
+process_yield <- function(ffy, ol_yield_sd_factor = 4) {
+  library(knitr)
+  options(knitr.duplicate.label = "allow")
+
+  cat(paste0(
+    "=============================================\n= Processing experiment data for ", ffy,
+    "\n============================================="
+  ))
+
+  #--- define field parameters ---#
+  trial_pars <- get_trial_parameter(ffy)
+  yield_file <- trial_pars$yield_data
+
+  exp_temp_rmd <- read_rmd("DataProcessing/data_processing_template.Rmd")
+
+  e_yield <-
+    read_rmd("DataProcessing/e01_gen_yield_polygons.Rmd") %>%
+    gsub("yield-file-name-here", yield_file, .)
+
+  yield_rmd <-
+    c(exp_temp_rmd, e_yield) %>%
+    gsub("field-year-here", ffy, .) %>%
+    gsub("title-here", "Yield Data Processing", .) %>%
+    gsub("ol_yield_sd_factor_here", ol_yield_sd_factor, .)
+
+  # /*=================================================*/
+  #' # Write out the rmd and render
+  # /*=================================================*/
+  rmd_file_name <-
+    here(
+      "Data/Growers",
+      ffy,
+      "DataProcessingReport/yield_data_report.Rmd"
+    )
+
+  debug_file_name <-
+    here(
+      "Data/Growers",
+      ffy,
+      "DataProcessingReport/yield_for_debug.R"
+    )
+
+  writeLines(yield_rmd, con = rmd_file_name)
+
+  purl(rmd_file_name, output = debug_file_name)
+
+  render(rmd_file_name)
+}
+
+# /*===========================================================
+#' # Process Input Data
+# /*===========================================================
+process_input <- function(ffy) {
+  library(knitr)
+  options(knitr.duplicate.label = "allow")
+
+  cat(paste0(
+    "============================================\n= Processing experiment data for ", ffy,
+    "\n============================================"
+  ))
+  #--- define field parameters ---#
+  trial_pars <- get_trial_parameter(ffy)
+  trial_info <- trial_pars$input_data_trial
+
+  template_rmd <- read_rmd("DataProcessing/data_processing_template.Rmd")
+
+  # /*----------------------------------*/
+  #' ## Rmd(s) for input processing
+  # k*----------------------------------*/
+  input_rmd <-
+    trial_info %>%
+    rowwise() %>%
+    mutate(
+      e02_rmd = list(
+        prepare_e02_rmd(
+          input_type = input_type,
+          data_file = file_name,
+          input_form = form,
+          input_id = input_id,
+          reporting_unit = reporting_unit,
+          input_unit = unit,
+          machine_width = machine_width
+        )
+      )
+    ) %>%
+    data.table() %>%
+    .[, e02_rmd] %>%
+    reduce(c)
+
+  input_rmd_full <-
+    c(template_rmd, input_rmd) %>%
+    gsub("field-year-here", ffy, .) %>%
+    gsub("title-here", "Input Data Processing Report", .)
+
+  # /*=================================================*/
+  #' # Write out the rmd and render
+  # /*=================================================*/
+  rmd_file_name <-
+    here(
+      "Data/Growers",
+      ffy,
+      "DataProcessingReport/input_data_report.Rmd"
+    )
+
+  debug_file_name <-
+    here(
+      "Data/Growers",
+      ffy,
+      "DataProcessingReport/input_for_debug.R"
+    )
+
+  writeLines(input_rmd_full, con = rmd_file_name)
+
+  purl(rmd_file_name, output = debug_file_name)
+
+  render(rmd_file_name)
+}
+
+
+# /*=================================================*/
+#' # Merge yield and input data
+# /*=================================================*/
+
+merge_yield_input <- function(ffy, overlap_acceptance_pct = 0.1, max_dev = NA) {
+  library(knitr)
+  options(knitr.duplicate.label = "allow")
+
+  cat(paste0(
+    "============================================\n= Processing experiment data for ", ffy,
+    "\n============================================"
+  ))
+  #--- define field parameters ---#
+  trial_pars <- get_trial_parameter(ffy)
+  trial_info <- trial_pars$input_data_trial
+
+  exp_temp_rmd <-
+    read_rmd("DataProcessing/data_processing_template.Rmd") %>%
+    c(., read_rmd("DataProcessing/e03_yield_input_integration.Rmd")) %>%
+    gsub("field-year-here", ffy, .) %>%
+    gsub("title-here", "Merge Yield and Input Data", .) %>%
+    gsub("max_dev_here", max_dev, .) %>%
+    gsub("overlap_acceptance_pct_here", overlap_acceptance_pct, .)
+
+  # /*=================================================*/
+  #' # Write out the rmd and render
+  # /*=================================================*/
+  data_merge_rmd_file_name <-
+    here(
+      "Data/Growers",
+      ffy,
+      "DataProcessingReport/merge_data_report.Rmd"
+    )
+
+  debug_file_name <-
+    here(
+      "Data/Growers",
+      ffy,
+      "DataProcessingReport/for_debug.R"
+    )
+
+  writeLines(exp_rmd_yiy, con = data_merge_rmd_file_name)
+
+  purl(data_merge_rmd_file_name, output = debug_file_name)
+
+  render(data_merge_rmd_file_name)
+}
+
+
 # /*=================================================*/
 #' # Experiment data processing and reporting
 # /*=================================================*/
 
-exp_process_make_report <- function(ffy, ol_yield_sd_factor = 4, overlap_acceptance_pct = 0.1, rerun = FALSE, locally_run = FALSE) {
+exp_process_make_report <- function(ffy, ol_yield_sd_factor = 4, overlap_acceptance_pct = 0.1, max_dev = NA, rerun = FALSE, locally_run = FALSE) {
   library(knitr)
   options(knitr.duplicate.label = "allow")
 
@@ -136,6 +308,7 @@ exp_process_make_report <- function(ffy, ol_yield_sd_factor = 4, overlap_accepta
     gsub("field-year-here", ffy, .) %>%
     gsub("title-here", "Experiment Data Processing Report", .) %>%
     gsub("ol_yield_sd_factor_here", ol_yield_sd_factor, .) %>%
+    gsub("max_dev_here", max_dev, .) %>%
     gsub("overlap_acceptance_pct_here", overlap_acceptance_pct, .)
 
   # /*=================================================*/
@@ -661,17 +834,14 @@ make_trial_design <- function(
 # file_name <- "DataProcessing/data_processing_template.Rmd"
 # rmd_file[1:10]
 
-read_rmd <- function(file_name, locally_run = FALSE) {
-  if (locally_run == FALSE) {
-    file_name_on_github <- paste0("https://github.com/tmieno2/OnFarmExperiments/blob/master/", file_name, "?raw=TRUE")
-    rmd_file <- suppressMessages(readLines(file_name_on_github))
-  } else if (here() == "/Users/tmieno2/OneDrive - University of Nebraska-Lincoln/OnFarmExperiments") {
-    # === if in TM's DIFM_DevTeam folder ===#
-    rmd_file <- readLines(here("Codes", file_name))
-  } else {
-    # === if in anybody's DIFM_HQ  ===#
-    rmd_file <- readLines(here("Codes", file_name))
-  }
+read_rmd <- function(file_name) {
+  file_name_on_github <-
+    paste0(
+      "https://github.com/tmieno2/OnFarmExperiments/blob/master/", file_name,
+      "?raw=TRUE"
+    )
+
+  rmd_file <- suppressMessages(readLines(file_name_on_github))
 
   return(rmd_file)
 }
@@ -848,13 +1018,10 @@ get_td_text <- function(input_type, gc_type, locally_run = FALSE) {
   return(td_rmd)
 }
 
-prepare_e02_rmd <- function(input_type, use_td = FALSE, data_file, input_form, input_id, reporting_unit, input_unit, machine_width, locally_run = FALSE) {
+prepare_e02_rmd <- function(input_type, use_td = FALSE, data_file, input_form, input_id, reporting_unit, input_unit, machine_width) {
   if (!use_td) {
     return_rmd <-
-      read_rmd(
-        "DataProcessing/e02_process_as_applied_base.Rmd",
-        locally_run = locally_run
-      ) %>%
+      read_rmd("DataProcessing/e02_process_as_applied_base.Rmd") %>%
       gsub("input_type_here", input_type, .) %>%
       gsub(
         "as-applied-file-name-here",
@@ -869,10 +1036,7 @@ prepare_e02_rmd <- function(input_type, use_td = FALSE, data_file, input_form, i
       gsub("machine_width_here", machine_width, .)
   } else {
     return_rmd <-
-      read_rmd(
-        "DataProcessing/e02_use_td.Rmd",
-        locally_run = locally_run
-      ) %>%
+      read_rmd("DataProcessing/e02_use_td.Rmd") %>%
       gsub("input_type_here", input_type, .)
   }
 

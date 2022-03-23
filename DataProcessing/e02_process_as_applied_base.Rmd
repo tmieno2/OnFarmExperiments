@@ -49,7 +49,10 @@ tm_shape(aa_input) +
 
 ```{r }
 #--- medium distance of yield polygons ---#
-med_distance_yp <- get_med_dist(yield_polygons)
+med_distance_yp <-
+  here("Data/Growers", ffy, "Intermediate/yield_polygons.rds") %>%
+  saveRDS() %>%
+  get_med_dist()
 ```
 
 ## Miscellaneous operations and various checks
