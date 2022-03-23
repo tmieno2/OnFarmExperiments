@@ -73,8 +73,6 @@ input_polygons %>%
 ### Rx polygons
 
 ```{r eval = F}
-
-
 input_polygons %>%
   filter(Rx_data != "none") %>%
   mutate(

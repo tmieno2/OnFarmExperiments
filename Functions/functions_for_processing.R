@@ -32,7 +32,7 @@ reduce_points_v <- function(data_sf, nobs_per_group, var_interest, ol_var_name, 
       .[, n_group := NULL] %>%
       setnames("group_var", by_var) %>%
       setnames("var_i", var_interest) %>%
-      setnames("flag_bad", ol_var_name) 
+      setnames("flag_bad", ol_var_name)
   } else {
     data_dt <- data_sf %>%
       cbind(., st_coordinates(.)) %>%
@@ -190,7 +190,7 @@ drop_group_points_sc <- function(data_sf, by_var = NA) {
 }
 
 
-# data_sf <- yield
+# data_sf <- aa_input
 
 group_points_sc <- function(data_sf, by_var = NA, angle_threshold) {
   if (!is.na(by_var)) {
@@ -199,6 +199,8 @@ group_points_sc <- function(data_sf, by_var = NA, angle_threshold) {
       data.table() %>%
       .[, original_order_id := 1:nrow(.)] %>%
       setnames(by_var, "group_var")
+
+    med_dist <- get_med_dist_sec(data_sf)
   } else {
     by_var <- "group_var"
     setup_dt <- data_sf %>%
@@ -206,6 +208,8 @@ group_points_sc <- function(data_sf, by_var = NA, angle_threshold) {
       data.table() %>%
       .[, original_order_id := 1:nrow(.)] %>%
       .[, group_var := 1]
+
+    med_dist <- get_med_dist(data_sf)
   }
 
   # plot(1:39127, angle_dt[!is.na(angle), angle])
@@ -225,13 +229,12 @@ group_points_sc <- function(data_sf, by_var = NA, angle_threshold) {
     .[, angle := acos(vec_ip_d) / pi * 180] %>%
     .[0.99 < vec_ip_d, angle := 0] %>%
     #--- 15 is the magic number (may not work) ---#
-    .[, change_group := angle >= angle_threshold] %>%
+    .[, change_group := (angle >= angle_threshold) | (distance > 5 * med_dist)] %>%
     .[is.na(change_group), change_group := TRUE] %>%
     .[1, change_group := TRUE] %>%
     .[, group := cumsum(change_group), by = group_var] %>%
     .[, obs_per_group := .N, by = group] %>%
     .[obs_per_group > 1, ]
-
 
   if (all(group_dt$group_var == 1)) {
     group_dt[, `:=`(
@@ -497,6 +500,32 @@ get_aggregated <- function(data, key, weight, awc_sum = TRUE) {
     setnames("key", key)
 }
 
+# /*===========================================================
+#' # Make sequence of points to fill the zero-rate portion of the input data
+# /*===========================================================
+make_seq_points <- function(origin, dir_vect, length) {
+  dir_vect_length <- sqrt(sum(dir_vect^2))
+
+  points_seq_negative <-
+    lapply(
+      seq_len(floor(length / dir_vect_length)),
+      function(x) origin[[1]] - x * dir_vect
+    ) %>%
+    st_as_sfc() %>%
+    st_set_crs(st_crs(aa_input_grouped))
+
+  points_seq_positive <-
+    lapply(
+      seq_len(floor(length / dir_vect_length)),
+      function(x) origin[[1]] + x * dir_vect
+    ) %>%
+    st_as_sfc() %>%
+    st_set_crs(st_crs(aa_input_grouped))
+
+  points_seq <- c(points_seq_positive, points_seq_negative)
+
+  return(points_seq)
+}
 # /*=================================================*/
 #' # Create polygons
 # /*=================================================*/
