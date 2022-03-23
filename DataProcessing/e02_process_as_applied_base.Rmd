@@ -282,7 +282,7 @@ if (w_Rx_data != "none") { # if Rx data exists
   Rx_data <-
     trial_info %>%
     .$input_data_trial %>%
-    filter(input_id == "3") %>%
+    filter(input_id == w_input_id) %>%
     pull(Rx_data) %>%
     here("Data/Growers", ffy, "Raw", .) %>%
     st_read() %>%
