@@ -520,8 +520,24 @@ tm_shape(yield_polygons) +
 ## Save the data
 
 ```{r saving-the-polygons}
-here("Data/Growers", ffy, "Intermediate/yield_polygons.rds") %>%
-  saveRDS(yield_polygons, .)
+#* save yield polygon data
+saveRDS(
+  yield_polygons,
+  here(
+    "Data/Growers",
+    ffy,
+    "Intermediate/yield_polygons.rds"
+  )
+)
 
+#* save yield-trial design data to be used in e03
+saveRDS(
+  yield_trd,
+  here(
+    "Data/Growers",
+    ffy,
+    "Intermediate/yield_trd.rds"
+  )
+)
 ```
 
