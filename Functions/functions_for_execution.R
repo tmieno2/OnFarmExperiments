@@ -190,7 +190,7 @@ process_input <- function(ffy, ol_sd_factor = 4) {
 #' # Merge yield and input data
 # /*=================================================*/
 
-merge_yield_input <- function(ffy, overlap_acceptance_pct = 0.1, max_dev = NA) {
+merge_yield_input <- function(ffy, overlap_acceptance_pct = 0.1, max_dev_ls = NA) {
   library(knitr)
   options(knitr.duplicate.label = "allow")
 
@@ -202,12 +202,12 @@ merge_yield_input <- function(ffy, overlap_acceptance_pct = 0.1, max_dev = NA) {
   trial_pars <- get_trial_parameter(ffy)
   trial_info <- trial_pars$input_data_trial
 
-  exp_temp_rmd <-
+  merge_rmd <-
     read_rmd("DataProcessing/data_processing_template.Rmd") %>%
     c(., read_rmd("DataProcessing/e03_yield_input_integration.Rmd")) %>%
     gsub("field-year-here", ffy, .) %>%
     gsub("title-here", "Merge Yield and Input Data", .) %>%
-    gsub("max_dev_here", max_dev, .) %>%
+    gsub("max_dev_here", max_dev_ls, .) %>%
     gsub("overlap_acceptance_pct_here", overlap_acceptance_pct, .)
 
   # /*=================================================*/
@@ -224,10 +224,10 @@ merge_yield_input <- function(ffy, overlap_acceptance_pct = 0.1, max_dev = NA) {
     here(
       "Data/Growers",
       ffy,
-      "DataProcessingReport/for_debug.R"
+      "DataProcessingReport/merge_for_debug.R"
     )
 
-  writeLines(exp_rmd_yiy, con = data_merge_rmd_file_name)
+  writeLines(merge_rmd, con = data_merge_rmd_file_name)
 
   purl(data_merge_rmd_file_name, output = debug_file_name)
 

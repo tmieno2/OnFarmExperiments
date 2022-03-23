@@ -620,7 +620,7 @@ aa_input_sf <-
 #* save
 here(
   "Data/Growers", ffy, "Intermediate",
-  paste0("aa-", input_type, "-", input_form, "-", input_id, ".rds")
+  paste0("aa-", input_type, "-", input_form, "-", w_input_id, ".rds")
 ) %>%
   saveRDS(aa_input_sf, .)
 ```

@@ -58,16 +58,15 @@ process_yield(
 )
 
 process_input(
-  ffy = ffy
+  ffy = ffy,
   ol_sd_factor = 4
 )
 
 merge_yield_input(
   ffy,
   overlap_acceptance_pct = 0.1,
-  max_dev_ls = c(10, 10, 10)
+  max_dev_ls = "c(10, 10, 10)"
 )
-
 
 
 # /*----------------------------------*/
