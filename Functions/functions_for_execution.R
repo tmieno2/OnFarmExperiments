@@ -37,7 +37,7 @@ get_ne_data <- function(ffy, rerun = FALSE, locally_run = FALSE) {
   }
 
   nep_rmd <-
-    read_rmd("DataProcessing/get_ne_data.rmd", locally_run = locally_run) %>%
+    read_rmd("DataProcessing/get_ne_data.rmd") %>%
     gsub("field-year-here", ffy, .) %>%
     gsub("title-here", "Non-experiment Data Processing Report", .)
 
