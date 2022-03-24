@@ -602,53 +602,42 @@ if (is_dense) {
 ## Create polygons
 
 ```{r }
-if (is_aa_input_polygon) { #* if as-applied rate is in polygon
+#--- prepare parallel computation ---#
+plan(multiprocess, workers = detectCores() - 2)
 
-  aa_input_sf <-
-    aa_input_reduced_v %>%
-    dplyr::select(-geometry) %>%
-    left_join(aa_input_poly, , by = "aa_id") %>%
-    rename(aa_input_id = aa_id) %>%
-    st_as_sf() %>%
-    st_make_valid()
-} else {
-  #--- prepare parallel computation ---#
-  plan(multiprocess, workers = detectCores() - 2)
+#--- create polygons ---#
+all_polygons <-
+  future_lapply(
+    #--- list of groups to loop over ---#
+    aa_input_reduced_v$new_group %>% unique(),
+    #--- make polygons by group ---#
+    function(x) {
+      make_polygons(
+        filter(aa_input_reduced_v, new_group == x)
+      )
+    }
+  ) %>%
+  do.call("c", .) %>%
+  st_as_sfc() %>%
+  st_make_valid()
 
-  #--- create polygons ---#
-  all_polygons <-
-    future_lapply(
-      #--- list of groups to loop over ---#
-      aa_input_reduced_v$new_group %>% unique(),
-      #--- make polygons by group ---#
-      function(x) {
-        make_polygons(
-          filter(aa_input_reduced_v, new_group == x)
-        )
-      }
-    ) %>%
-    do.call("c", .) %>%
-    st_as_sfc() %>%
-    st_make_valid()
+# filter(aa_input_grouped, new_group == "m_18") %>%
+#   st_as_sf() %>%
+#   ggplot(data = .) +
+#   geom_sf()
 
-  # filter(aa_input_grouped, new_group == "m_18") %>%
-  #   st_as_sf() %>%
-  #   ggplot(data = .) +
-  #   geom_sf()
-
-  #--- combine with the data ---#
-  aa_input_sf <-
-    aa_input_reduced_v %>%
-    mutate(geometry = all_polygons) %>%
-    st_as_sf() %>%
-    st_set_crs(st_crs(aa_input)) %>%
-    #--- get rid of transition polygons by area ---#
-    mutate(area = as.numeric(st_area(.))) %>%
-    # filter(area <= median(area) * 5) %>%
-    mutate(aa_input_id = 1:nrow(.)) %>%
-    filter(!st_is_empty(.)) %>%
-    dplyr::select(aa_input_id, input_rate, ol_input_rate)
-}
+#--- combine with the data ---#
+aa_input_sf <-
+  aa_input_reduced_v %>%
+  mutate(geometry = all_polygons) %>%
+  st_as_sf() %>%
+  st_set_crs(st_crs(aa_input)) %>%
+  #--- get rid of transition polygons by area ---#
+  mutate(area = as.numeric(st_area(.))) %>%
+  # filter(area <= median(area) * 5) %>%
+  mutate(aa_input_id = 1:nrow(.)) %>%
+  filter(!st_is_empty(.)) %>%
+  dplyr::select(aa_input_id, input_rate, ol_input_rate)
 ```
 
 ```{r }
