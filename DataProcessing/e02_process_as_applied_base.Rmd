@@ -425,7 +425,7 @@ if (length(zero_rx_id) != 0) {
     mutate(num_points_to_add = nrow(points_to_add)) %>%
     filter(num_points_to_add != 0) %>%
     mutate(points_to_add = list(
-      mutate(points_to_add, group = paste0("m_", rx_id), new_group = paste0("m_", rx_id))
+      mutate(points_to_add, group = paste0("m_rx_", rx_id, "_cl_", cluster), new_group = paste0("m_rx_", rx_id, "_cl_", cluster))
     )) %>%
     pull(points_to_add) %>%
     rbindlist() %>%
