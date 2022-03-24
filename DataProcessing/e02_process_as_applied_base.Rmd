@@ -320,7 +320,7 @@ if (length(zero_rx_id) != 0) {
   #* if points are missing in the zero-rate polygons
   zero_tgt_polygons <-
     filter(Rx_data, rx_id %in% zero_rx_id) %>%
-    st_buffer(actual_machine_width / 8)
+    st_buffer(actual_machine_width / 2)
 
   #* which groups of points are intersecting the zero-rate Rx polygons?
   rx_group_ls <-
@@ -330,13 +330,16 @@ if (length(zero_rx_id) != 0) {
     unique(by = c("rx_id", "group")) %>%
     setnames("group", "w_group")
 
-  # ggplot() +
-  #   geom_sf(data = zero_tgt_polygons) +
-  #   geom_sf(data = points_filling$seq_points[[2]]) +
-  #   geom_sf(data = points_filling$origin[[2]], color = "red") +
-  #   geom_sf(data = points_filling$int_seq_rx[[2]], color = "blue")
+  # tm_shape(aa_input_grouped) +
+  #   tm_symbols(size = 0.05) +
+  # tm_shape(points_filling$int_seq_rx[[6]]) +
+  #   tm_symbols(col = "red", size = 0.05) +
+  # tm_shape(points_filling$geometry[6]) +
+  #   tm_borders()
 
-  points_filling <-
+
+  #* Make sequence of points inside the zero-rate Rx polygons
+  candidate_points <-
     rx_group_ls %>%
     rowwise() %>%
     left_join(., Rx_data, by = "rx_id") %>%
@@ -373,8 +376,38 @@ if (length(zero_rx_id) != 0) {
         st_as_sf()
     )) %>%
     mutate(int_nums = nrow(int_seq_rx)) %>%
+    filter(int_nums > 0) %>%
+    data.table()
+
+  # /*+++++++++++++++++++++++++++++++++++
+  #' ## how many paths in a single Rx polygon?
+  # /*+++++++++++++++++++++++++++++++++++
+  num_paths <- 
+    st_buffer(aa_input_grouped, dist = actual_machine_width / 2) %>%
+    st_intersection(., filter(Rx_data, tgt_input != 0)) %>%
+    mutate(area_int = st_area(.) %>% as.numeric()) %>%
     data.table() %>%
-    .[, .SD[which.max(int_nums)], by = rx_id] %>%
+    .[, .(area_tot = sum(area_int)), by = rx_id] %>%
+    data.table(Rx_data)[, .(rx_id, area)][., on = "rx_id"] %>%
+    .[, ratio := area_tot / area] %>%
+    .[, ifelse(median(ratio) > 1, 2, 1)]
+
+  # /*+++++++++++++++++++++++++++++++++++
+  #' ## cluster w_group
+  # /*+++++++++++++++++++++++++++++++++++
+  group_cluster <-
+    dplyr::select(candidate_points, rx_id, w_group) %>%
+    nest_by(rx_id) %>%
+    mutate(data = list(
+      mutate(data, cluster = kmeans(w_group, num_paths)$cluster)
+    )) %>%
+    unnest()
+
+  points_filling <- 
+    candidate_points %>%
+    left_join(., group_cluster, by = c("rx_id", "w_group")) %>%
+    data.table() %>%
+    .[, .SD[which.max(int_nums)], by = .(rx_id, cluster)] %>%
     rowwise() %>%
     mutate(points_to_remove = list(
       st_intersection(aa_input_grouped, geometry) %>%
@@ -408,13 +441,16 @@ if (length(zero_rx_id) != 0) {
   #* Visualization (Rx polygons that are missing points inside)
   tm_shape(aa_input_grouped) +
     tm_symbols(size = 0.02) +
-  tm_shape(zero_tgt_polygons) +
+    tm_shape(zero_tgt_polygons) +
     tm_borders(col = "red") +
-  tm_shape(Rx_data) +
+    tm_shape(Rx_data) +
     tm_text(text = "rx_id", col = "blue")
 
-  #* New (red) and existing (bllue) poitns 
-
+  #* New (red) and existing (bllue) poitns
+  tm_shape(aa_input_grouped) +
+    tm_symbols(col = "blue", size = 0.1) +
+    tm_shape(st_as_sf(points_filling)) +
+    tm_symbols(col = "red", size = 0.1)
 }
 
 
