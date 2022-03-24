@@ -562,7 +562,10 @@ if (section_num != 1) {
   aa_input_grouped <- mutate(aa_input_grouped, width = med_distance_h)
 } else {
   # if only one observation at a timestamp, use the reported width from the machine
-  aa_input_grouped <- aa_input_grouped
+
+  if (all(is.na(aa_input_grouped$width))) {
+    aa_input_grouped <- mutate(aa_input_grouped, width = actual_machine_width)
+  }
 }
 ```
 
