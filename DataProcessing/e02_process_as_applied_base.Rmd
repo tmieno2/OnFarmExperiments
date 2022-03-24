@@ -230,7 +230,7 @@ if (recover_section_id) { # if section id is missing even though the data is obs
       group_points_sc(
         aa_input,
         by_var = "sectionid",
-        angle_threshold = 90
+        angle_threshold = 30
       ) %>%
       #--- remove observations with no group assigned ---#
       mutate(
@@ -245,7 +245,7 @@ if (recover_section_id) { # if section id is missing even though the data is obs
       group_points_sc(
         aa_input,
         by_var = NA,
-        angle_threshold = 90
+        angle_threshold = 30
       ) %>%
       #--- remove observations with no group assigned ---#
       mutate(new_group = group)

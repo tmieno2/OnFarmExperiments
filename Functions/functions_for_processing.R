@@ -234,7 +234,7 @@ group_points_sc <- function(data_sf, by_var = NA, angle_threshold) {
     .[1, change_group := TRUE] %>%
     .[, group := cumsum(change_group), by = group_var] %>%
     .[, obs_per_group := .N, by = group] %>%
-    .[obs_per_group > 1, ]
+    .[obs_per_group > 2, ]
 
   if (all(group_dt$group_var == 1)) {
     group_dt[, `:=`(
