@@ -59,7 +59,8 @@ process_yield(
 
 process_input(
   ffy = ffy,
-  ol_sd_factor = 4
+  ol_sd_factor = 4,
+  num_paths = "c(2, 2, 2)"
 )
 
 merge_yield_input(

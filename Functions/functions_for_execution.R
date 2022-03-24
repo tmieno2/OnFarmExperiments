@@ -118,7 +118,7 @@ process_yield <- function(ffy, ol_yield_sd_factor = 4) {
 # /*===========================================================
 #' # Process Input Data
 # /*===========================================================
-process_input <- function(ffy, ol_sd_factor = 4) {
+process_input <- function(ffy, ol_sd_factor = 4, num_paths = NA) {
   library(knitr)
   options(knitr.duplicate.label = "allow")
 
@@ -159,7 +159,8 @@ process_input <- function(ffy, ol_sd_factor = 4) {
     c(template_rmd, input_rmd) %>%
     gsub("field-year-here", ffy, .) %>%
     gsub("title-here", "Input Data Processing Report", .) %>%
-    gsub("ol_sd_factor_here", ol_sd_factor, .)
+    gsub("ol_sd_factor_here", ol_sd_factor, .) %>%
+    gsub("num_paths_here", num_paths, .)
 
   # /*=================================================*/
   #' # Write out the rmd and render
@@ -310,7 +311,8 @@ exp_process_make_report <- function(ffy, ol_yield_sd_factor = 4, overlap_accepta
     gsub("title-here", "Experiment Data Processing Report", .) %>%
     gsub("ol_yield_sd_factor_here", ol_yield_sd_factor, .) %>%
     gsub("max_dev_here", max_dev, .) %>%
-    gsub("overlap_acceptance_pct_here", overlap_acceptance_pct, .)
+    gsub("overlap_acceptance_pct_here", overlap_acceptance_pct, .) %>%
+    gsub("num_paths_here", num_paths, .)
 
   # /*=================================================*/
   #' # Remove cached files if rerun == TRUE

@@ -271,8 +271,7 @@ tm_shape(aa_input_grouped) +
  
 ```{r }
 w_Rx_data <-
-  trial_info %>%
-  .$input_data_trial %>%
+  input_trial_data %>%
   filter(input_id == w_input_id) %>%
   pull(Rx_data)
 
@@ -280,8 +279,7 @@ if (w_Rx_data != "none") { # if Rx data exists
 
   #* Check if there are polygons with targer rate of zero
   Rx_data <-
-    trial_info %>%
-    .$input_data_trial %>%
+    input_trial_data %>%
     filter(input_id == w_input_id) %>%
     pull(Rx_data) %>%
     here("Data/Growers", ffy, "Raw", .) %>%
@@ -337,7 +335,6 @@ if (length(zero_rx_id) != 0) {
   # tm_shape(points_filling$geometry[6]) +
   #   tm_borders()
 
-
   #* Make sequence of points inside the zero-rate Rx polygons
   field_bbox <- st_bbox(aa_input_grouped)
   candidate_points <-
@@ -380,18 +377,20 @@ if (length(zero_rx_id) != 0) {
     filter(int_nums > 0) %>%
     data.table()
 
-  # /*+++++++++++++++++++++++++++++++++++
-  #' ## how many paths in a single Rx polygon?
-  # /*+++++++++++++++++++++++++++++++++++
-  num_paths <- 
-    st_buffer(aa_input_grouped, dist = actual_machine_width / 2) %>%
-    st_intersection(., filter(Rx_data, tgt_input != 0)) %>%
-    mutate(area_int = st_area(.) %>% as.numeric()) %>%
-    data.table() %>%
-    .[, .(area_tot = sum(area_int)), by = rx_id] %>%
-    data.table(Rx_data)[, .(rx_id, area)][., on = "rx_id"] %>%
-    .[, ratio := area_tot / area] %>%
-    .[, ifelse(median(ratio) > 1, 2, 1)]
+  # # /*+++++++++++++++++++++++++++++++++++
+  # #' ## how many paths in a single Rx polygon?
+  # # /*+++++++++++++++++++++++++++++++++++
+  # num_paths <-
+  #   st_buffer(aa_input_grouped, dist = actual_machine_width / 2) %>%
+  #   st_intersection(., filter(Rx_data, tgt_input != 0)) %>%
+  #   mutate(area_int = st_area(.) %>% as.numeric()) %>%
+  #   data.table() %>%
+  #   .[, .(area_tot = sum(area_int)), by = rx_id] %>%
+  #   data.table(Rx_data)[, .(rx_id, area)][., on = "rx_id"] %>%
+  #   .[, ratio := area_tot / area] %>%
+  #   .[, ifelse(median(ratio) > 1, 2, 1)]
+
+  num_paths_per_Rx_plot <- input_trial_data[input_id == w_input_id, num_paths]
 
   # /*+++++++++++++++++++++++++++++++++++
   #' ## cluster w_group
@@ -400,11 +399,11 @@ if (length(zero_rx_id) != 0) {
     dplyr::select(candidate_points, rx_id, w_group) %>%
     nest_by(rx_id) %>%
     mutate(data = list(
-      mutate(data, cluster = kmeans(w_group, num_paths)$cluster)
+      mutate(data, cluster = kmeans(w_group, num_paths_per_Rx_plot)$cluster)
     )) %>%
     unnest()
 
-  points_filling <- 
+  points_filling <-
     candidate_points %>%
     left_join(., group_cluster, by = c("rx_id", "w_group")) %>%
     data.table() %>%
