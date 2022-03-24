@@ -28,7 +28,7 @@ field_year_ls <- field_data$field_year
 # /*=================================================*/
 # make_data_report()
 
-ffy <- field_year_ls[1]
+ffy <- field_year_ls[2]
 
 # /*----------------------------------*/
 #' ## Non-experiment Data
@@ -60,7 +60,7 @@ process_yield(
 process_input(
   ffy = ffy,
   ol_sd_factor = 4,
-  num_paths = "c(2, 2, 2)"
+  num_paths = "c(2, 1)"
 )
 
 merge_yield_input(

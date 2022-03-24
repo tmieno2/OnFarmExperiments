@@ -229,7 +229,7 @@ group_points_sc <- function(data_sf, by_var = NA, angle_threshold) {
     .[, angle := acos(vec_ip_d) / pi * 180] %>%
     .[0.99 < vec_ip_d, angle := 0] %>%
     #--- 15 is the magic number (may not work) ---#
-    .[, change_group := (angle >= angle_threshold) | (distance > 5 * med_dist)] %>%
+    .[, change_group := (angle >= angle_threshold) | (distance > 10 * med_dist)] %>%
     .[is.na(change_group), change_group := TRUE] %>%
     .[1, change_group := TRUE] %>%
     .[, group := cumsum(change_group), by = group_var] %>%
