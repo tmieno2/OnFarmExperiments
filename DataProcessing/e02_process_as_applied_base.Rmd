@@ -641,7 +641,7 @@ if (is_aa_input_polygon) { #* if as-applied rate is in polygon
     st_set_crs(st_crs(aa_input)) %>%
     #--- get rid of transition polygons by area ---#
     mutate(area = as.numeric(st_area(.))) %>%
-    filter(area <= median(area) * 5) %>%
+    # filter(area <= median(area) * 5) %>%
     mutate(aa_input_id = 1:nrow(.)) %>%
     filter(!st_is_empty(.)) %>%
     dplyr::select(aa_input_id, input_rate, ol_input_rate)
