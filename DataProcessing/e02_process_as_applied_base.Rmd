@@ -339,6 +339,7 @@ if (length(zero_rx_id) != 0) {
 
 
   #* Make sequence of points inside the zero-rate Rx polygons
+  field_bbox <- st_bbox(aa_input_grouped)
   candidate_points <-
     rx_group_ls %>%
     rowwise() %>%
