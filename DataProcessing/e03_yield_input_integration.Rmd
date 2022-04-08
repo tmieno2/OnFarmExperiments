@@ -164,7 +164,7 @@ input_pct <-
       setnames("wm_input_rate", "input_rate") %>%
       unique(by = "yield_id")
   )) %>%
-  dplyr::select(input_type, form, var_name_prefix, yield_input_int, input_pct_data) %>%
+  dplyr::select(input_type, form, var_name_prefix, yield_input_int, input_pct_data, max_dev_allowed) %>%
   mutate(
     # === visualize overlap ===#
     gg_overlap = list(
@@ -219,7 +219,7 @@ ggplot() +
 # === yield data after removing unreliable inputs ===#
 yield_input_data_pre <-
   input_pct %>%
-  dplyr::select(input_type, var_name_prefix, form, input_pct_data) %>%
+  dplyr::select(input_type, var_name_prefix, form, input_pct_data, max_dev_allowed) %>%
   mutate(input_pct_data_pre = list(
     data.table::copy(input_pct_data) %>%
       # === 0 means within the threshold ===#

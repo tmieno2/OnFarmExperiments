@@ -71,10 +71,12 @@ process_input(
 #   ol_sd_factor = 4
 # )
 
+#* Warning: the numbe of elements in max_dev_ls has to match with the number of inputs in trial_info
+
 merge_yield_input(
   ffy,
   overlap_acceptance_pct = 0.1,
-  max_dev_ls = "c(10, 10, 10)"
+  max_dev_ls = "c(10, 10)"
 )
 
 
