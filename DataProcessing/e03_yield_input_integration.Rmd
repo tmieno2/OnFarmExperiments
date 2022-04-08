@@ -27,10 +27,17 @@ tm_shape(filter(yield_polygons, drop_as_outliers == 0)) +
 **Inputs and their Rx (if exist)**
 
 ```{r }
+if (length(max_dev_ls) != nrow(input_trial_data)) {
+  print("Warning: the number of elements in max_dev_ls does not match with the number of inputs in input_trial_data!")
+}
+```
+
+```{r }
 # input_polygons$rx_polygons
 
 input_polygons <-
   input_trial_data %>%
+  mutate(max_dev_allowed = max_dev_ls) %>%
   rowwise() %>%
   mutate(
     input_file_name = here(
@@ -48,8 +55,7 @@ input_polygons <-
     } else {
       NULL
     }
-  )) %>%
-  mutate(max_dev_allowed = list(max_dev_ls))
+  ))
 ```
 
 ### Input polygons
@@ -205,7 +211,6 @@ temp_yield_poly <- filter(yield_polygons, yield_id == temp_yield_id)
 ggplot() +
   geom_sf(data = st_as_sf(overlapping_input), aes(fill = factor(input_rate)), alpha = 0.5) +
   geom_sf(data = temp_yield_poly, color = "red", fill = NA, size = 1)
-
 ```
 
 ### Flag unreliable observations
@@ -343,14 +348,12 @@ viz <-
 
 ```{r }
 viz$viz_overlap
-
 ```
 
 **Deviation (1 means passing the deviation test)**
 
 ```{r }
 viz$viz_deviation
-
 ```
 
 ## Save

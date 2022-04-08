@@ -103,6 +103,7 @@ input_trial_data <- trial_info$input_data_trial
 #--- add number of paths in a Rx polygon ---#
 #* this is used when filling zero-rate Rx polygons with
 #* manufactured input data points
+
 num_paths <- num_paths_here
 input_trial_data$num_paths <- num_paths
 
