@@ -118,8 +118,6 @@ saveRDS(
 ```{r Grouping-yield-points-by-angle-and-detecting-sharp-turns-and-changes-of-rows}
 
 yield_grouped <- group_points_sc(yield, by_var = NA, 30)
-
-
 ```
 
 Red points are the points that are recognized for making a sharp turn from their respective previous points.
@@ -411,22 +409,46 @@ cat(
 
 ```{r Creating-polygons-around-points-by-group}
 #--- prepare parallel computation ---#
-plan(multiprocess, workers = detectCores() - 2)
+# plan(multiprocess, workers = detectCores() - 2)
 
 #--- create polygons ---#
-all_polygons <-
-  future_lapply(
-    #--- list of groups to loop over ---#
-    yield_reduced_v$group %>% unique(),
-    #--- make polygons by group ---#
-    function(x) {
-      make_polygons(
-        filter(yield_reduced_v, group == x)
-      )
-    }
-  ) %>%
-  reduce(c) %>%
-  st_as_sfc()
+
+if (.Platform$OS.type == "unix") {
+  print("R codes are run on non-windows system. mclapply() will be used.")
+
+  all_polygons <-
+    mclapply(
+      #--- list of groups to loop over ---#
+      yield_reduced_v$group %>% unique(),
+      #--- make polygons by group ---#
+      function(x) {
+        # print(x)
+        make_polygons(
+          filter(yield_reduced_v, group == x)
+        )
+      },
+      mc.cores = detectCores() - 2
+    ) %>%
+    reduce(c) %>%
+    st_as_sfc()
+} else {
+  print("R codes are run on windows system. lapply() will be used.")
+
+  all_polygons <-
+    lapply(
+      #--- list of groups to loop over ---#
+      yield_reduced_v$group %>% unique(),
+      #--- make polygons by group ---#
+      function(x) {
+        # print(x)
+        make_polygons(
+          filter(yield_reduced_v, group == x)
+        )
+      }
+    ) %>%
+    reduce(c) %>%
+    st_as_sfc()
+}
 
 #--- combine with the data ---#
 yield_sf <-

@@ -60,8 +60,16 @@ process_yield(
 process_input(
   ffy = ffy,
   ol_sd_factor = 4,
+  #* === define how many as-applied paths you have in a design plot ===*#
+  #* this one is used only when there are missing data points due to the application of zero rates
+  #* do not forget ""
   num_paths = "c(2, 1)"
 )
+
+# process_input(
+#   ffy = ffy,
+#   ol_sd_factor = 4
+# )
 
 merge_yield_input(
   ffy,
