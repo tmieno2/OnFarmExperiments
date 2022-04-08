@@ -486,7 +486,6 @@ trd_polygons <-
 # === vis ===#
 tm_shape(trd_polygons) +
   tm_polygons(col = "Trt")
-
 ```
 
 ### Flag yield outliers by treatment block
@@ -606,20 +605,38 @@ if (is_dense) {
 plan(multiprocess, workers = detectCores() - 2)
 
 #--- create polygons ---#
-all_polygons <-
-  future_lapply(
-    #--- list of groups to loop over ---#
-    aa_input_reduced_v$new_group %>% unique(),
-    #--- make polygons by group ---#
-    function(x) {
-      make_polygons(
-        filter(aa_input_reduced_v, new_group == x)
-      )
-    }
-  ) %>%
-  do.call("c", .) %>%
-  st_as_sfc() %>%
-  st_make_valid()
+if (.Platform$OS.type == "unix") {
+  all_polygons <-
+    mclapply(
+      #--- list of groups to loop over ---#
+      aa_input_reduced_v$new_group %>% unique(),
+      #--- make polygons by group ---#
+      function(x) {
+        make_polygons(
+          filter(aa_input_reduced_v, new_group == x)
+        )
+      },
+      mc.cores = detectCores() - 2
+    ) %>%
+    do.call("c", .) %>%
+    st_as_sfc() %>%
+    st_make_valid()
+} else {
+  all_polygons <-
+    lapply(
+      #--- list of groups to loop over ---#
+      aa_input_reduced_v$new_group %>% unique(),
+      #--- make polygons by group ---#
+      function(x) {
+        make_polygons(
+          filter(aa_input_reduced_v, new_group == x)
+        )
+      }
+    ) %>%
+    do.call("c", .) %>%
+    st_as_sfc() %>%
+    st_make_valid()
+}
 
 # filter(aa_input_grouped, new_group == "m_18") %>%
 #   st_as_sf() %>%
