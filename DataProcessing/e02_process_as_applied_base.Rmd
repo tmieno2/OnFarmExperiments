@@ -363,7 +363,7 @@ if (length(zero_rx_id) != 0) {
       sqrt((field_bbox["xmax"] - field_bbox["xmin"])^2 + (field_bbox["ymax"] - field_bbox["ymin"])^2)
     )) %>%
     mutate(seq_points = list(
-      make_seq_points(origin, dir_vect, length)
+      make_seq_points(aa_input_grouped, origin, dir_vect, length)
     )) %>%
     #* manufactured data points that are inside the zero-rate Rx polygon
     mutate(int_seq_rx = list(

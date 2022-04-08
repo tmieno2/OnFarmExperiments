@@ -503,7 +503,7 @@ get_aggregated <- function(data, key, weight, awc_sum = TRUE) {
 # /*===========================================================
 #' # Make sequence of points to fill the zero-rate portion of the input data
 # /*===========================================================
-make_seq_points <- function(origin, dir_vect, length) {
+make_seq_points <- function(sf_data, origin, dir_vect, length) {
   dir_vect_length <- sqrt(sum(dir_vect^2))
 
   points_seq_negative <-
@@ -512,7 +512,7 @@ make_seq_points <- function(origin, dir_vect, length) {
       function(x) origin[[1]] - x * dir_vect
     ) %>%
     st_as_sfc() %>%
-    st_set_crs(st_crs(aa_input_grouped))
+    st_set_crs(st_crs(sf_data))
 
   points_seq_positive <-
     lapply(
@@ -520,7 +520,7 @@ make_seq_points <- function(origin, dir_vect, length) {
       function(x) origin[[1]] + x * dir_vect
     ) %>%
     st_as_sfc() %>%
-    st_set_crs(st_crs(aa_input_grouped))
+    st_set_crs(st_crs(sf_data))
 
   points_seq <- c(points_seq_positive, points_seq_negative)
 
