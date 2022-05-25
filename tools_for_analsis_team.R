@@ -71,7 +71,7 @@ process_input(
 #   ol_sd_factor = 4
 # )
 
-#* Warning: the numbe of elements in max_dev_ls has to match with the number of inputs in trial_info
+#* Warning: the number of elements in max_dev_ls has to match with the number of inputs in trial_info
 
 merge_yield_input(
   ffy,
@@ -87,11 +87,9 @@ merge_yield_input(
 # lapply(field_year_ls, f_process_make_report)
 
 #--- individually ---#
-f_process_make_report(
-  ffy = ffy,
-  rerun = TRUE,
-  locally_run = FALSE
-)
+f_process_make_report(ffy = ffy)
+
+#locally_run = FALSE
 
 # /*=================================================*/
 #' # Run analysis and make report

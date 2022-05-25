@@ -371,8 +371,7 @@ f_process_make_report <- function(ffy, rerun = FALSE, locally_run = FALSE) {
   #* Read the template rmd file
   fp_temp_rmd <-
     read_rmd(
-      "DataProcessing/data_processing_template.Rmd",
-      locally_run = locally_run
+      "DataProcessing/data_processing_template.Rmd"
     ) %>%
     gsub("field-year-here", ffy, .)
 
@@ -380,8 +379,7 @@ f_process_make_report <- function(ffy, rerun = FALSE, locally_run = FALSE) {
 
   f01_rmd <-
     read_rmd(
-      "DataProcessing/f01_combine_all_datasets.Rmd",
-      locally_run = locally_run
+      "DataProcessing/f01_combine_all_datasets.Rmd"
     )
 
   fp_rmd <- c(fp_temp_rmd, f01_rmd)
