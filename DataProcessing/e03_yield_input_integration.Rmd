@@ -7,6 +7,7 @@
 ```{r }
 overlap_acceptance_pct <- overlap_acceptance_pct_here
 max_dev_ls <- max_dev_here
+ignore_overlap_threshold <- ignore_overlap_threshold_here
 ```
 
 ### Read datasets
@@ -137,7 +138,9 @@ input_pct <-
     ) %>%
       # === percentage of overlap relative to the are of a yield polygon ===#
       mutate(sub_pct = as.numeric(st_area(.)) / yield_area) %>%
-      data.table()
+      data.table() %>%
+      #* === remove overlapping input rate observations if below the threshold ===*#
+      filter(sub_pct >= ignore_overlap_threshold)
   )) %>%
   mutate(input_pct_data = list(
     copy(yield_input_int) %>%

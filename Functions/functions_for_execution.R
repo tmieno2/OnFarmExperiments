@@ -191,7 +191,7 @@ process_input <- function(ffy, ol_sd_factor = 4, num_paths = NA) {
 #' # Merge yield and input data
 # /*=================================================*/
 
-merge_yield_input <- function(ffy, overlap_acceptance_pct = 0.1, max_dev_ls = NA) {
+merge_yield_input <- function(ffy, overlap_acceptance_pct = 0.1, max_dev_ls = NA, ignore_overlap_threshold = 0.05) {
   library(knitr)
   options(knitr.duplicate.label = "allow")
 
@@ -209,6 +209,7 @@ merge_yield_input <- function(ffy, overlap_acceptance_pct = 0.1, max_dev_ls = NA
     gsub("field-year-here", ffy, .) %>%
     gsub("title-here", "Merge Yield and Input Data", .) %>%
     gsub("max_dev_here", max_dev_ls, .) %>%
+    gsub("ignore_overlap_threshold_here", ignore_overlap_threshold, .) %>%
     gsub("overlap_acceptance_pct_here", overlap_acceptance_pct, .)
 
   # /*=================================================*/
