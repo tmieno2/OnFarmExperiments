@@ -405,6 +405,7 @@ g_diagnostics <-
       geom_sf(aes(fill = ol), color = NA) +
       geom_sf(data = trd_polygons, color = "red", fill = NA, size = 0.6) +
       scale_fill_distiller(palette = "Spectral", name = "Outlier") +
+      theme_void() +
       ggtitle(paste0(var_name_prefix, "_", form, "Outlier"))
   )) %>%
   #* === overlap test ===*#
@@ -413,6 +414,7 @@ g_diagnostics <-
       geom_sf(aes(fill = factor(over_lap_test)), color = NA) +
       geom_sf(data = trd_polygons, color = "darkgreen", fill = NA, size = 0.6) +
       scale_fill_discrete(name = "overlap") +
+      theme_void() +
       ggtitle(paste0(var_name_prefix, "_", form, "Overlap"))
   )) %>%
   #* === deviation test ===*#
@@ -421,6 +423,7 @@ g_diagnostics <-
       geom_sf(aes(fill = factor(deviation_test)), color = NA) +
       geom_sf(data = trd_polygons, color = "darkgreen", fill = NA, size = 0.6) +
       scale_fill_discrete(name = "Deviation") +
+      theme_void() +
       ggtitle(paste0(var_name_prefix, "_", form, "Deviation"))
   ))
 ```
