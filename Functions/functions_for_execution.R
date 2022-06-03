@@ -689,8 +689,7 @@ make_grower_report <- function(ffy, rerun = TRUE, locally_run = FALSE) {
 # /*=================================================*/
 # Create plots and ab-lines
 
-make_trial_design <- function(
-                              ffy,
+make_trial_design <- function(ffy,
                               json_file,
                               head_dist = NA,
                               side_dist = NA,
@@ -1005,12 +1004,12 @@ get_td_text <- function(input_type, gc_type, locally_run = FALSE) {
   td_rmd <- read_rmd(td_rmd_file, locally_run = locally_run)
 
   if (gc_type == "Rx") {
-    grower_plan_text <- "follow the commercial prescription depicted 
+    grower_plan_text <- "follow the commercial prescription depicted
       in the first panel of figure \\\\@ref(fig:mix-figures)"
   } else if (gc_type == "uniform") {
-    grower_plan_text <- "apply _gc_rate_here_ _unit_here_ per acre 
-      uniformly across the field. `r length(unique(trial_design$tgti))` 
-      experimental _input_full_name_l_ rates were assigned randomly and in 
+    grower_plan_text <- "apply _gc_rate_here_ _unit_here_ per acre
+      uniformly across the field. `r length(unique(trial_design$tgti))`
+      experimental _input_full_name_l_ rates were assigned randomly and in
       roughly equal number to plots"
   }
 

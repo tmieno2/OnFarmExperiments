@@ -387,7 +387,8 @@ if (!("trd_PlotNum" %in% names(trd_polygons))) {
 g_diagnostics <-
   yield_input_data_pre %>%
   mutate(plot_data = list(
-    left_join(yield_polygons, input_pct_data_pre, by = "yield_id")
+    left_join(yield_polygons, input_pct_data_pre, by = "yield_id") %>%
+      mutate(dropped = (ol != 0 | over_lap_test == 1 | deviation_test == 1))
   )) %>%
   dplyr::select(var_name_prefix, form, plot_data) %>%
   #* === input rate ===*#
@@ -425,6 +426,15 @@ g_diagnostics <-
       scale_fill_discrete(name = "Deviation") +
       theme_void() +
       ggtitle(paste0(var_name_prefix, "_", form, "Deviation"))
+  )) %>%
+  #* === drop or not ===*#
+  mutate(g_dropped = list(
+    ggplot(plot_data) +
+      geom_sf(aes(fill = factor(dropped)), color = NA) +
+      geom_sf(data = trd_polygons, color = "darkgreen", fill = NA, size = 0.6) +
+      scale_fill_discrete(name = "Dropped") +
+      theme_void() +
+      ggtitle(paste0(var_name_prefix, "_", form, "Drop or not (1 means drop)"))
   ))
 ```
 
@@ -436,6 +446,7 @@ for (i in 1:nrow(g_diagnostics)) {
   print(temp$g_outlier[[1]])
   print(temp$g_overlap[[1]])
   print(temp$g_dev[[1]])
+  print(temp$g_dropped[[1]])
 }
 ```
 
