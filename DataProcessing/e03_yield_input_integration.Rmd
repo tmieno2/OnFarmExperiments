@@ -394,15 +394,16 @@ g_diagnostics <-
   mutate(g_input = list(
     ggplot(plot_data) +
       geom_sf(aes(fill = input_rate), color = NA) +
-      geom_sf(data = trd_polygons, color = "red", fill = NA, size = 0.4) +
+      geom_sf(data = trd_polygons, color = "red", fill = NA, size = 0.6) +
       scale_fill_distiller(palette = "Spectral", name = "Input Rate") +
+      theme_void() +
       ggtitle(paste0(var_name_prefix, "_", form, "Input Rate"))
   )) %>%
   #* === outlier test ===*#
   mutate(g_outlier = list(
     ggplot(plot_data) +
       geom_sf(aes(fill = ol), color = NA) +
-      geom_sf(data = trd_polygons, color = "red", fill = NA, size = 0.4) +
+      geom_sf(data = trd_polygons, color = "red", fill = NA, size = 0.6) +
       scale_fill_distiller(palette = "Spectral", name = "Outlier") +
       ggtitle(paste0(var_name_prefix, "_", form, "Outlier"))
   )) %>%
@@ -410,7 +411,7 @@ g_diagnostics <-
   mutate(g_overlap = list(
     ggplot(plot_data) +
       geom_sf(aes(fill = factor(over_lap_test)), color = NA) +
-      geom_sf(data = trd_polygons, color = "darkgreen", fill = NA, size = 0.4) +
+      geom_sf(data = trd_polygons, color = "darkgreen", fill = NA, size = 0.6) +
       scale_fill_discrete(name = "overlap") +
       ggtitle(paste0(var_name_prefix, "_", form, "Overlap"))
   )) %>%
@@ -418,7 +419,7 @@ g_diagnostics <-
   mutate(g_dev = list(
     ggplot(plot_data) +
       geom_sf(aes(fill = factor(deviation_test)), color = NA) +
-      geom_sf(data = trd_polygons, color = "darkgreen", fill = NA, size = 0.4) +
+      geom_sf(data = trd_polygons, color = "darkgreen", fill = NA, size = 0.6) +
       scale_fill_discrete(name = "Deviation") +
       ggtitle(paste0(var_name_prefix, "_", form, "Deviation"))
   ))
@@ -431,7 +432,7 @@ for (i in 1:nrow(g_diagnostics)) {
   print(temp$g_input[[1]])
   print(temp$g_outlier[[1]])
   print(temp$g_overlap[[1]])
-  print(temp$g_deviation[[1]])
+  print(temp$g_dev[[1]])
 }
 ```
 
