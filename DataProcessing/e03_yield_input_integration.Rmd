@@ -366,4 +366,73 @@ saveRDS(yield_input_data, file = here("Data", "Growers", ffy, "Intermediate/yiel
 saveRDS(detailed_int_data, file = here("Data", "Growers", ffy, "DataProcessingReport/detailed_intersection_info.rds"))
 ```
 
+# Visual Diagnostics
+
+```{r }
+trd_polygons <-
+  here(
+    "Data/Growers", ffy, "TrialDesign",
+    paste0(trial_info$tr_design_data, ".shp")
+  ) %>%
+  st_read() %>%
+  mutate(treat_id = 1:nrow(.)) %>%
+  dplyr::rename_at(vars(-one_of("geometry")), ~ paste0("trd_", .))
+
+if (!("trd_PlotNum" %in% names(trd_polygons))) {
+  trd_polygons <- mutate(trd_polygons, trd_PlotNum = 1:nrow(trd_polygons))
+}
+```
+
+```{r }
+g_diagnostics <-
+  yield_input_data_pre %>%
+  mutate(plot_data = list(
+    left_join(yield_polygons, input_pct_data_pre, by = "yield_id")
+  )) %>%
+  dplyr::select(var_name_prefix, form, plot_data) %>%
+  #* === input rate ===*#
+  mutate(g_input = list(
+    ggplot(plot_data) +
+      geom_sf(aes(fill = input_rate), color = NA) +
+      geom_sf(data = trd_polygons, color = "red", fill = NA, size = 0.4) +
+      scale_fill_distiller(palette = "Spectral", name = "Input Rate") +
+      ggtitle(paste0(var_name_prefix, "_", form, "Input Rate"))
+  )) %>%
+  #* === outlier test ===*#
+  mutate(g_outlier = list(
+    ggplot(plot_data) +
+      geom_sf(aes(fill = ol), color = NA) +
+      geom_sf(data = trd_polygons, color = "red", fill = NA, size = 0.4) +
+      scale_fill_distiller(palette = "Spectral", name = "Outlier") +
+      ggtitle(paste0(var_name_prefix, "_", form, "Outlier"))
+  )) %>%
+  #* === overlap test ===*#
+  mutate(g_overlap = list(
+    ggplot(plot_data) +
+      geom_sf(aes(fill = factor(over_lap_test)), color = NA) +
+      geom_sf(data = trd_polygons, color = "darkgreen", fill = NA, size = 0.4) +
+      scale_fill_discrete(name = "overlap") +
+      ggtitle(paste0(var_name_prefix, "_", form, "Overlap"))
+  )) %>%
+  #* === deviation test ===*#
+  mutate(g_dev = list(
+    ggplot(plot_data) +
+      geom_sf(aes(fill = factor(deviation_test)), color = NA) +
+      geom_sf(data = trd_polygons, color = "darkgreen", fill = NA, size = 0.4) +
+      scale_fill_discrete(name = "Deviation") +
+      ggtitle(paste0(var_name_prefix, "_", form, "Deviation"))
+  ))
+```
+
+
+```{r }
+for (i in 1:nrow(g_diagnostics)) {
+  temp <- g_diagnostics[i, ]
+  print(temp$g_input[[1]])
+  print(temp$g_outlier[[1]])
+  print(temp$g_overlap[[1]])
+  print(temp$g_deviation[[1]])
+}
+```
+
 
