@@ -1129,7 +1129,7 @@ get_trial_parameter <- function(ffy) {
   input_data_trial <-
     input_data[
       strategy == "trial",
-      .(form, input_id, machine_width, unit, file_name, Rx_data, var_name_prefix)
+      .(form, input_id, machine_width, unit, file_name, Rx_data, var_name_prefix, date)
     ] %>%
     .[, input_type := NA] %>%
     .[, input_type := ifelse(form == "seed", "S", input_type)] %>%
@@ -1153,8 +1153,18 @@ get_trial_parameter <- function(ffy) {
           reporting_unit = reporting_unit
         )
       ) %>%
-      data.table() %>%
-      .[, sum(n_equiv_rate)]
+      data.table()
+
+    n_wide <-
+      n_base_rate %>%
+      .[, date := gsub("/", "-", date)] %>%
+      .[, product_name := paste0("base_", product, "_", date)] %>%
+      .[, .(product_name, n_equiv_rate)] %>%
+      .[, id := 1:.N] %>%
+      dcast(. ~ product_name, value.var = "n_equiv_rate") %>%
+      .[, `.` := NULL]
+
+    n_total <- n_base_rate[, sum(n_equiv_rate)]
   } else {
     n_base_rate <- 0
   }
@@ -1162,7 +1172,7 @@ get_trial_parameter <- function(ffy) {
   return(list(
     crop = crop,
     year = w_year,
-    n_base_rate = n_base_rate,
+    n_base_data = list(n_indiv = n_wide, n_total = n_total),
     yield_data = w_field_data$yield_data,
     tr_design_data = w_field_data$tr_data,
     input_data_trial = input_data_trial,

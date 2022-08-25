@@ -76,7 +76,8 @@ process_input(
 merge_yield_input(
   ffy,
   overlap_acceptance_pct = 0.1,
-  max_dev_ls = "c(10, 10)"
+  max_dev_ls = "c(10, 10)",
+  ignore_overlap_threshold = 0.05 # default 0.05
 )
 
 

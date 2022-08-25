@@ -48,6 +48,10 @@ input_polygons <-
   ) %>%
   # === input ===#
   mutate(input_polygons = list(readRDS(input_file_name))) %>%
+  #--- add date ---#
+  mutate(input_polygons = list(
+    mutate(input_polygons, date = date)
+  )) %>%
   # === rx ===#
   mutate(rx_polygons = list(
     if (Rx_data != "none") {
@@ -128,9 +132,13 @@ tm_alignment$tm_map
 
 ```{r }
 
+# input_pct$yield_input_int
+# input_pct$input_pct_data[[1]][, wm_input_rate_ignore_small]
+
 input_pct <-
   input_polygons %>%
   # === intersect yield and input polygons to check overlaps ===#
+  # Every possible cropping intersetcions of yield and nitrogen polygons are made
   mutate(yield_input_int = list(
     st_intersection(
       dplyr::select(yield_polygons, yield_id, yield_area),
@@ -139,8 +147,9 @@ input_pct <-
       # === percentage of overlap relative to the are of a yield polygon ===#
       mutate(sub_pct = as.numeric(st_area(.)) / yield_area) %>%
       data.table() %>%
-      #* === remove overlapping input rate observations if below the threshold ===*#
-      filter(sub_pct >= ignore_overlap_threshold)
+      #* === flag overlapping input rate observations if below the threshold ===*#
+      # flag the interesections that are very small and potentially want to ignore in calculating N for each yield polygon
+      .[, ignorable_overlap := fifelse(sub_pct < ignore_overlap_threshold, TRUE, FALSE)]
   )) %>%
   mutate(input_pct_data = list(
     copy(yield_input_int) %>%
@@ -155,16 +164,23 @@ input_pct <-
       .[, dev_input_rate := sum(abs(sub_pct * (input_rate - wm_input_rate) / tot_sub_pct)), by = yield_id] %>%
       #--- calculate sub_pct-weighted MEAN of outlier flag ---#
       .[, ol := sum(sub_pct * ol_input_rate) / tot_sub_pct, by = yield_id] %>%
+      #--- indicate whether  ---#
+      .[ignorable_overlap != TRUE, wm_input_rate_ignore_small := sum(sub_pct * input_rate), by = yield_id] %>%
       #--- order by yield_id ---#
       .[order(yield_id), ] %>%
       .[, .(
         yield_id,
         tot_sub_pct,
         wm_input_rate,
+        wm_input_rate_ignore_small,
         dev_input_rate,
+        date,
         ol
       )] %>%
-      setnames("wm_input_rate", "input_rate") %>%
+      setnames(
+        c("wm_input_rate", "wm_input_rate_ignore_small"),
+        c("input_rate", "input_rate_ignore_small")
+      ) %>%
       unique(by = "yield_id")
   )) %>%
   dplyr::select(input_type, form, var_name_prefix, yield_input_int, input_pct_data, max_dev_allowed) %>%
@@ -236,13 +252,21 @@ yield_input_data_pre <-
       )] %>%
       # === 0 means okay ===#
       .[, deviation_test := fifelse(dev_input_rate < max_dev_allowed, 0, 1)] %>%
-      .[, .(yield_id, input_rate, ol, over_lap_test, deviation_test)]
+      .[, .(yield_id, input_rate, input_rate_ignore_small, ol, over_lap_test, deviation_test, date)]
   )) %>%
   mutate(input_pct_data_out = list(
     copy(input_pct_data_pre) %>%
       setnames(
+        "date",
+        paste0(tolower(input_type), "_", form, "_date")
+      ) %>%
+      setnames(
         "input_rate",
         paste0(tolower(input_type), "_rate", "_", form)
+      ) %>%
+      setnames(
+        "input_rate_ignore_small",
+        paste0(tolower(input_type), "_rate", "_", form, "ignore_small")
       ) %>%
       setnames(
         "ol",
@@ -292,7 +316,8 @@ yield_input_data <-
   reduce(full_join, by = "yield_id") %>%
   inner_join(yield_polygons, ., by = "yield_id") %>%
   # === add base n-rate column ===#
-  mutate(n_base = n_base)
+  mutate(n_base_total = trial_info$n_base_data$n_total) %>%
+  cbind(., trial_info$n_base_data$n_indiv)
 ```
 
 ### Detailed data for inspection
